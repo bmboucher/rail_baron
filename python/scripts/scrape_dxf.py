@@ -2,6 +2,8 @@ from typing import NamedTuple, List, Dict, Tuple
 from pathlib import Path
 import re
 import ezdxf
+from svgwrite import mm
+from pyrailbaron.util.inkscape import InkscapeDrawing
 
 # This file is python/scripts/scrape_dxf.py
 ROOT_DIR = Path(__file__).parent.parent.parent
@@ -13,9 +15,11 @@ OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 point_csv = OUTPUT_DIR / 'points.csv'
 rr_csv = OUTPUT_DIR / 'railroads.csv'
 graph = OUTPUT_DIR / 'graph.txt'
+svg_file = OUTPUT_DIR / 'all.svg'
 point_csv.unlink(missing_ok=True)
 rr_csv.unlink(missing_ok=True)
 graph.unlink(missing_ok=True)
+svg_file.unlink(missing_ok=True)
 
 class Point(NamedTuple):
     i: int
@@ -36,7 +40,7 @@ class Point(NamedTuple):
             p.connect_to(self, rr, False)
     
 points: List[Point] = []
-TOLERANCE = 0.1
+TOLERANCE = 0.5
 def get_point(x,y,append=False) -> int:
     for i,p in enumerate(points):
         if (p.x-x)**2 + (p.y-y)**2 < TOLERANCE:
@@ -58,7 +62,7 @@ for e in network_doc.entities:
     p2 = get_point(x2,y2,append=True)
 print(f'Found {len(points)} points')
 
-rr_count = 0
+rr_list = []
 for rr_path in (ROOT_DIR/'data').glob('rr_*.dxf'):
     rr_name = re.sub(r'rr_(.*)\.dxf', r'\1', rr_path.name)
     rr_doc = ezdxf.readfile(rr_path)
@@ -70,8 +74,8 @@ for rr_path in (ROOT_DIR/'data').glob('rr_*.dxf'):
         points[p1].connect_to(points[p2], rr_name)
         with rr_csv.open('a') as rr_file:
             rr_file.write(f'{rr_name},{p1},{p2}\n')
-    rr_count += 1
-print(f'Found {rr_count} railroads')
+    rr_list.append(rr_name)
+print(f'Found {len(rr_list)} railroads')
 
 with graph.open('w') as gfile:
     for p in points:
@@ -81,3 +85,52 @@ with graph.open('w') as gfile:
             gfile.write(f'    {rr} -> {conn_list}\n')
         if len(p.connections) == 0:
             print(f'WARNING! Point #{p.i} ({p.x},{p.y}) has no connections')
+
+X_SIZE = 787
+Y_SIZE = 381
+MIN_PAD = 30
+
+min_x = min(p.x for p in points)
+max_x = max(p.x for p in points)
+min_y = min(p.y for p in points)
+max_y = max(p.y for p in points)
+scale = min((X_SIZE - 2 * MIN_PAD)/(max_x - min_x),
+            (Y_SIZE - 2 * MIN_PAD)/(max_y - min_y))
+act_padding_x = X_SIZE - scale * (max_x - min_x) - MIN_PAD
+act_padding_y = Y_SIZE - scale * (max_y - min_y) - MIN_PAD
+print(f'Calculated scale {scale} (padding = {act_padding_x},{act_padding_y})')
+
+def transform(x,y):
+    return (x - min_x) * scale + act_padding_x, \
+           (max_y - y) * scale + act_padding_y
+
+dwg = InkscapeDrawing(svg_file, size=(X_SIZE*mm,Y_SIZE*mm), profile='full',
+    viewBox=(f'0 0 {X_SIZE} {Y_SIZE}'))
+def circle(c_x, c_y, r, **kwargs):
+    p = dwg.path(d=f'M {c_x-r} {c_y}', **kwargs)
+    p.push_arc((2*r, 0), 0, r, True, '-', False)
+    p.push_arc((-2*r, 0), 0, r, True, '-', False)
+    return p
+
+hole_layer = dwg.layer(label='holes')
+label_layer = dwg.layer(label='labels')
+
+for p in points:
+    t_x, t_y = transform(p.x,p.y)
+    hole_layer.add(circle(t_x, t_y, 2.5, 
+        fill='none', stroke='blue', stroke_width=0.25))
+    label_layer.add(dwg.text(str(p.i),insert=(t_x, t_y),font_size='5px'))
+dwg.add(hole_layer)
+dwg.add(label_layer)
+
+for rr in rr_list:
+    rr_layer = dwg.layer(label=f'rr_{rr}')
+    for p in points:
+        if rr in p.connections:
+            for p2 in p.connections[rr]:
+                if p2.i > p.i:
+                    rr_layer.add(dwg.line(transform(p.x,p.y),transform(p2.x,p2.y),
+                        stroke='red', stroke_width=0.5))
+    dwg.add(rr_layer)
+
+dwg.save()
