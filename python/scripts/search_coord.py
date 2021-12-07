@@ -5,6 +5,11 @@ import zipfile
 import tempfile
 
 ROOT_DIR = Path(__file__).parent.parent.parent
+
+with (ROOT_DIR/'output/points.csv').open('rt') as point_file:
+    points = [(float(p[1]), float(p[2])) for p in csv.reader(point_file) if len(p) >= 3]
+print(f'Found {len(points)} total points')
+
 with (ROOT_DIR/'data/city_labels.csv').open('r') as city_csv:
     cities = [r for r in csv.reader(city_csv) if len(r) >= 3]
 print(f'Found {len(cities)} cities')
@@ -19,10 +24,6 @@ if not geonames_data.exists():
     with zipfile.ZipFile(tmp, 'r') as tmpzip:
         tmpzip.extract('US.txt', geonames_data.parent)
     Path(tmp).unlink()
-
-with (ROOT_DIR/'output/points.csv').open('rt') as point_file:
-    points = [(float(p[1]), float(p[2])) for p in csv.reader(point_file) if len(p) >= 3]
-print(f'Found {len(points)} total points')
 
 print('Searching for city coordinates...')
 found_count = 0
