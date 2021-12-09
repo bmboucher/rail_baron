@@ -43,11 +43,10 @@ with (ROOT_DIR/'data/US.txt').open('rt',encoding='utf-8') as us_file:
 print(f'Found locations for {found_count} / {len(cities)} cities')
 
 with (ROOT_DIR/'output/city_coordinates.csv').open('w') as coord_file:
-    coord_file.write('city,state,lon,lat,x,y\n')
     for idx, city_data in enumerate(cities):
         city, state, pt_idx = city_data[:3]
         pt = points[int(pt_idx)]
         if coords[idx]:
-            coord_file.write(f'{city},{state},{coords[idx][1]},{coords[idx][0]},{pt[0]},{pt[1]}\n')
+            coord_file.write(f'{city},{state},{pt_idx},{coords[idx][1]},{coords[idx][0]},{pt[0]},{pt[1]}\n')
         else:
             print(f'WARNING! Could not find {city}, {state}')

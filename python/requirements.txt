@@ -1,3 +1,5 @@
 ezdxf
 svgwrite
+numpy
 sklearn
+dataclasses-json

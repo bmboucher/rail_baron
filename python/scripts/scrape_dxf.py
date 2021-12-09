@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import ezdxf
 from svgwrite import mm
-from pyrailbaron.util.inkscape import InkscapeDrawing
+from pyrailbaron.map.inkscape import InkscapeDrawing
 
 # This file is python/scripts/scrape_dxf.py
 ROOT_DIR = Path(__file__).parent.parent.parent
