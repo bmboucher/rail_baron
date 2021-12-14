@@ -1,5 +1,7 @@
 {
-    "SOUTHEAST": [
+    "SOUTHEAST": {
+        "fill": "#afbe9f",
+        "border": [
         ["FLORIDA", 0, [0,210]],
         ["ALABAMA", 0, [100,160]],
         ["M", [32.97, -88.47]],
@@ -13,8 +15,11 @@
         ["NORTH CAROLINA", 0, [28,282]],
         ["SOUTH CAROLINA", 0, [0,89]],
         ["GEORGIA", 0, [90,149]],
-        ["FLORIDA", 0, [276,-1]]],
-    "NORTHEAST": [
+        ["FLORIDA", 0, [276,-1]]]
+    },
+    "NORTHEAST": {
+        "fill": "#dbc1c2",
+        "border": [
         ["WEST VIRGINIA", 0, [256,-1]],
         ["WEST VIRGINIA", 0, [0,45]],
         ["MARYLAND",0,[172,15]],
@@ -38,4 +43,5 @@
         ["NEW YORK",0,[31,0]],
         ["NEW YORK",0,[-1,129]],
         ["PENNSYLVANIA",0,[16,0]]]
+    }
 }

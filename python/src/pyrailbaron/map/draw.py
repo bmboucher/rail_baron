@@ -25,11 +25,12 @@ def main(root_dir):
     with (root_dir / 'data/region_borders.json').open('rt') as region_file:
         regions = json.load(region_file)
     for region in regions:
-        region_pts =  get_region_border_points(borders, regions[region])
+        region_pts =  get_region_border_points(borders, regions[region]['border'])
         region_layer = svg.layer(region)
         region_layer.transforms = geo_transforms.copy()
+        fill_color = regions[region]['fill']
         region_layer.path(region_pts, stroke='black', 
-            fill='blue', stroke_width=1.5)
+            fill=fill_color, stroke_width=1.5)
 
     holes = svg.layer('holes')
     labels = svg.layer('labels')
