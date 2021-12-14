@@ -1,8 +1,12 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from typing import Tuple, List, Set, Optional, Dict
+from math import sqrt
 
 Coordinate = Tuple[float, float]
+
+def distance(p1: Coordinate, p2: Coordinate):
+    return sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
 @dataclass_json
 @dataclass
@@ -22,6 +26,8 @@ class MapPoint:
         # Latitude/longitude (need to be calculated)
     connections: Dict[str, Set[int]] = field(default_factory=dict)
         # Indexes of connected MapPoints, grouped by railroad name
+    final_svg_coords: Optional[Coordinate] = field(default=None)
+        # Final coordinates in the .svg
 
     def _connect_to(self, other: 'MapPoint', rr: str):
         if rr not in self.connections:
@@ -31,3 +37,16 @@ class MapPoint:
     def connect_to(self, other: 'MapPoint', rr: str):
         self._connect_to(other, rr)
         other._connect_to(self, rr)
+
+@dataclass_json
+@dataclass
+class Map:
+    points: List[MapPoint] = field(default_factory=list)
+    map_transform_A: List[List[float]] = field(default_factory=list)
+    map_transform_b: List[float] = field(default_factory=list)
+
+    def map_transform(self, c: Coordinate) -> Coordinate:
+        x, y = c
+        A, b = self.map_transform_A, self.map_transform_b
+        return A[0][0] * x + A[0][1] * y + b[0], \
+               A[1][0] * x + A[1][1] * y + b[1]
