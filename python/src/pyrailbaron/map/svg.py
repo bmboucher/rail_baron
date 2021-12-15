@@ -36,9 +36,10 @@ class MapSvgLayer:
         self.transforms = transforms.copy() if transforms else []
 
     def apply_transforms(self, p: Coordinate) -> Coordinate:
+        new_p = (p[0],p[1])
         for t in self.transforms:
-            p = t(p)
-        return p
+            new_p = t(new_p)
+        return new_p
 
     def line(self, p1: Coordinate, p2: Coordinate, **kwargs):
         self.g.add(self.parent.line(
@@ -52,6 +53,18 @@ class MapSvgLayer:
             p.push(self.apply_transforms(pt))
         self.g.add(p)
 
+    def square(self, c: Coordinate, s: float, angle_deg: float, **kwargs):
+        c_x,c_y = self.apply_transforms(c)
+        a = (angle_deg + 45) * pi/180
+        d = s / (2 * sqrt(2))
+        pts = [(c_x + d * cos(a + (i*pi)/2), 
+                c_y + d * sin(a + (i*pi)/2)) for i in range(4)]
+        pts.append(pts[0])
+        p = self.parent.path(d='M', **kwargs)
+        for pt in pts:
+            p.push(pt)
+        self.g.add(p)
+
     def cross(self, p: Coordinate, l: float, angle_deg: float, **kwargs):
         p = self.apply_transforms(p)
         a = angle_deg * pi / 180
@@ -62,8 +75,8 @@ class MapSvgLayer:
             a += pi/2
 
     def circle(self, c: Coordinate, r: float, **kwargs):
-        c = self.apply_transforms(c)
-        p = self.parent.path(d=f'M {c[0] - r} {c[1]}', **kwargs)
+        c_x,c_y = self.apply_transforms(c)
+        p = self.parent.path(d=f'M {c_x - r} {c_y}', **kwargs)
         p.push_arc((2 * r, 0), 0, r, True, '-', False)
         p.push_arc((-2 * r, 0), 0, r, True, '-', False)
         self.g.add(p)
