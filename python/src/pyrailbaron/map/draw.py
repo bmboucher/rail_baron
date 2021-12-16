@@ -5,7 +5,25 @@ import csv
 
 from pyrailbaron.map.states import get_border_data, get_region_border_points
 from pyrailbaron.map.svg import MapSvg, MapSvgLayer, transform_lcc, transform_dxf
-from pyrailbaron.map.datamodel import Map, Coordinate
+from pyrailbaron.map.datamodel import Map, Coordinate, distance
+from typing import List, Tuple
+from math import atan2, pi, sin, cos
+
+def get_parallels(p1: Coordinate, p2: Coordinate, n: int, spacing: float) \
+        -> List[Tuple[Coordinate, Coordinate]]:
+    x1,y1 = p1
+    x2,y2 = p2
+    x_d,y_d=x2-x1,y2-y1
+    a=atan2(y_d,x_d) + pi/2
+    start_shift = -((n - 1) * spacing) / 2
+    c_x,c_y = x1 + start_shift*cos(a), y1 + start_shift*sin(a)
+    inc_x, inc_y = spacing * cos(a), spacing * sin(a)
+    parallels: List[Tuple[Coordinate, Coordinate]] = []
+    for _ in range(n):
+        parallels.append(((c_x,c_y), (c_x+x_d,c_y+y_d)))
+        c_x += inc_x
+        c_y += inc_y
+    return parallels
 
 def main(root_dir):
     map_json = Path(root_dir) / 'output/map.json'
@@ -39,7 +57,7 @@ def main(root_dir):
 
     holes = svg.layer('holes')
     #labels = svg.layer('labels')
-    rr_layers: Dict[str, MapSvgLayer] = {}
+    rr_layer = svg.layer('rr')
     for p in map.points:
         holes.circle(p.final_svg_coords, 2.6, stroke='blue', stroke_width=0.01,
             fill = 'none')
@@ -49,14 +67,20 @@ def main(root_dir):
         else:
             #labels.text(str(p.index), p.final_svg_coords, font_size='4px')
             pass
+        conn_map = {}
         for rr in p.connections:
-            if rr not in rr_layers:
-                rr_layers[rr] = svg.layer(f'rr_{rr}')
             for j in p.connections[rr]:
                 if p.index < j:
-                    other_p = map.points[j]
-                    rr_layers[rr].line(p.final_svg_coords, other_p.final_svg_coords,
-                        stroke='red', stroke_width=1.0)
+                    if j not in conn_map:
+                        conn_map[j] = 0
+                    conn_map[j] += 1
+        for p_idx in conn_map:
+            n_segs = conn_map[p_idx]
+            other_p = map.points[p_idx]
+            segs = get_parallels(p.final_svg_coords, other_p.final_svg_coords,
+                n_segs, 2)
+            for p1,p2 in segs:
+                rr_layer.line(p1, p2, stroke='red', stroke_width=1.0)
 
     cities = svg.layer('cities')
     for p in map.points:
