@@ -15,7 +15,14 @@
             ["NORTH CAROLINA", 0, [28,282]],
             ["SOUTH CAROLINA", 0, [0,89]],
             ["GEORGIA", 0, [90,149]],
-            ["FLORIDA", 0, [276,-1]]]
+            ["FLORIDA", 0, [276,-1]]],
+        "islands": [
+            ["FLORIDA", 1, -1],
+            ["GEORGIA", 1, -1],
+            ["SOUTH CAROLINA",1,-1],
+            ["NORTH CAROLINA",1,-1],
+            ["VIRGINIA", 2, -1]
+        ]
     },
     "NORTHEAST": {
         "fill": "#dbc1c2",
@@ -42,7 +49,17 @@
             ["VERMONT",0,[10,0]],
             ["NEW YORK",0,[31,0]],
             ["NEW YORK",0,[-1,129]],
-            ["PENNSYLVANIA",0,[16,0]]]
+            ["PENNSYLVANIA",0,[16,0]]],
+        "islands": [
+            ["MARYLAND",2,-1],
+            ["DELAWARE",1,-1],
+            ["NEW JERSEY",1,-1],
+            ["NEW YORK",2,-1],
+            ["CONNECTICUT",1,-1],
+            ["RHODE ISLAND",1,-1],
+            ["MASSACHUSETTS",1,-1],
+            ["MAINE",1,-1]
+        ]
     },
     "NORTH CENTRAL": {
         "fill":"#a4b1b7",
@@ -62,7 +79,12 @@
             ["M",[40.6,-92.5]],
             ["M",[36.5,-92.5]],
             ["MISSOURI",0,[164,105]],
-            ["KENTUCKY",0,[150,-1]]]
+            ["KENTUCKY",0,[150,-1]]],
+        "islands": [
+            ["MICHIGAN",2,-1],
+            ["WISCONSIN",1,-1],
+            ["MINNESOTA",1,-1]
+        ]
     },
     "PLAINS": {
         "fill":"#b3abb8",
@@ -103,7 +125,10 @@
             ["TEXAS",0,[700,606]],
             ["OKLAHOMA",0,[196,200]],
             ["COLORADO",0,[45,65]],
-            ["M",[37,-108]]]
+            ["M",[37,-108]]],
+        "islands": [
+            ["CALIFORNIA",1,-1]
+        ]
     },
     "NORTHWEST": {
         "fill": "#d9b990",
@@ -141,7 +166,11 @@
             ["M",[49,-106]],
             ["M",[49,-105]],
             ["M",[49,-104]],
-            ["M",[49,-103]]]
+            ["M",[49,-103]]],
+        "islands": [
+            ["OREGON", 1,-1],
+            ["WASHINGTON",1,-1]
+        ]
     },
     "SOUTH CENTRAL": {
         "fill": "#cdcac1",
@@ -153,6 +182,11 @@
             ["M", [32.97, -85.50]],
             ["KENTUCKY", 0, [263,150]],
             ["MISSOURI",0,[105,173]],
-            ["OKLAHOMA",0,[31,196]]]
+            ["OKLAHOMA",0,[31,196]]],
+        "islands": [
+            ["TEXAS",1,-1],
+            ["LOUISIANA",1,-1],
+            ["MISSISSIPPI",1,-1]
+        ]
     }
 }

@@ -20,14 +20,7 @@ def main(root_dir):
     svg.transforms = [shift_up]
     geo_transforms = [transform_lcc, map.map_transform, transform_dxf, shift_up]
 
-    states = svg.layer('states')
-    states.transforms = geo_transforms.copy()
-
     borders = get_border_data(Path(root_dir) / 'data')
-    for state in borders:
-        for border in borders[state]:
-            states.path(border, stroke='green', stroke_width=0.25, fill='none')
-
     with (root_dir / 'data/region_borders.json').open('rt') as region_file:
         regions = json.load(region_file)
     for region in regions:
@@ -35,11 +28,17 @@ def main(root_dir):
         region_layer = svg.layer(region)
         region_layer.transforms = geo_transforms.copy()
         fill_color = regions[region]['fill']
-        region_layer.path(region_pts, fill_opacity=0.6, stroke='black', 
+        region_layer.path(region_pts, fill_opacity=0.6, stroke='#a0a0a0', 
+            fill=fill_color, stroke_width=0.25)
+        
+        for state, idx_from, idx_to in regions[region].get('islands',[]):
+            islands = borders[state][idx_from:idx_to]
+            for island in islands:
+                region_layer.path(island, fill_opacity=0.6, stroke='#a0a0a0', 
             fill=fill_color, stroke_width=0.25)
 
     holes = svg.layer('holes')
-    labels = svg.layer('labels')
+    #labels = svg.layer('labels')
     rr_layers: Dict[str, MapSvgLayer] = {}
     for p in map.points:
         holes.circle(p.final_svg_coords, 2.6, stroke='blue', stroke_width=0.01,
@@ -48,7 +47,8 @@ def main(root_dir):
             #labels.text(p.place_name.upper(), p.final_svg_coords, font_size='5px')
             pass
         else:
-            labels.text(str(p.index), p.final_svg_coords, font_size='4px')
+            #labels.text(str(p.index), p.final_svg_coords, font_size='4px')
+            pass
         for rr in p.connections:
             if rr not in rr_layers:
                 rr_layers[rr] = svg.layer(f'rr_{rr}')
