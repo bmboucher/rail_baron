@@ -97,7 +97,7 @@ def main(root_dir):
             #labels.text(p.place_name.upper(), p.final_svg_coords, font_size='5px')
             pass
         else:
-            labels.text(str(p.index), p.final_svg_coords, font_size='4px')
+            #labels.text(str(p.index), p.final_svg_coords, font_size='4px')
             pass
         conn_map = {}
         for rr in p.connections:
