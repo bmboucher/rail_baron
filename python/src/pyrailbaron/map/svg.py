@@ -85,6 +85,12 @@ class MapSvgLayer:
         p = self.apply_transforms(insert)
         self.g.add(self.parent.text(text, insert=p, **kwargs))
 
+    def use(self, href, insert: Coordinate, rotation: float, **kwargs):
+        insert = self.apply_transforms(insert)
+        u = self.parent.use(href, insert=insert, **kwargs)
+        u.rotate(rotation*180/pi, center=insert)
+        self.g.add(u)
+
 # The mapping from original .dxf files to the final assembled .svg is fixed
 # in this file rather than recalculated based on data each time; this provides
 # some consistency in the visualizations

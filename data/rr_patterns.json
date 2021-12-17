@@ -1,0 +1,350 @@
+{
+    "gmo": {
+        "style": "line",
+        "args": {
+            "stroke":"#342f4c",
+            "stroke_width": 1.0
+        }
+    },
+    "gn": {
+        "style": "line",
+        "args": {
+            "stroke":"#45779b",
+            "stroke_width": 1.0
+        }
+    },
+    "nw": {
+        "style": "line",
+        "args": {
+            "stroke": "black",
+            "stroke_width": 1.0
+        }
+    },
+    "np": {
+        "style": "line",
+        "args": {
+            "stroke": "#694947",
+            "stroke_width": 1.0,
+            "stroke_dasharray": "3 2"
+        }
+    },
+    "slsf": {
+        "style": "def",
+        "pattern_w": 3.0,
+        "pattern_h": 2.0,
+        "pattern": [
+            {
+                "d": "M 0 1 a 1 1 0 0 0 2 0 a 1 1 0 0 0 -2 0",
+                "stroke_width": 0,
+                "fill": "#a0627c"
+            }
+        ]
+    },
+    "atsf": {
+        "style": "def",
+        "pattern_w": 2.0,
+        "pattern_h": 2.0,
+        "pattern": [
+            {
+                "d": "M 0 0 l 1 0 l 0 1 l -1 0",
+                "stroke_width": 0,
+                "fill": "#376788"
+            },
+            {
+                "d": "M 1 1 l 1 0 l 0 1 l -1 0",
+                "stroke_width": 0,
+                "fill": "#376788"
+            }
+        ]
+    },
+    "drgw": {
+        "style": "def",
+        "pattern_w": 4.0,
+        "pattern_h": 2.0,
+        "pattern": [
+            {
+                "d": "M 0 1.6 l 4 0",
+                "stroke_width": 0.8,
+                "stroke": "#c16b2e"
+            },
+            {
+                "d": "M 1.5 1 l 2 0",
+                "stroke_width": 1,
+                "stroke": "#c16b2e"
+            },
+            {
+                "d": "M 0 0.4 l 4 0",
+                "stroke_width": 0.8,
+                "stroke": "#c16b2e"
+            }
+        ]
+    },
+    "tp": {
+        "style": "def",
+        "pattern_w": 2.0,
+        "pattern_h": 2.0,
+        "pattern": [
+            {
+                "d": "M 0 0.3 l 2 0",
+                "stroke_width": 0.6,
+                "stroke": "#322b3d",
+                "fill": "none"
+            },
+            {
+                "d": "M 0 1.7 l 2 0",
+                "stroke_width": 0.6,
+                "stroke": "#322b3d",
+                "fill": "none"
+            },
+            {
+                "d": "M 0 1 l 2 0",
+                "stroke_width": 0.4,
+                "stroke": "#322b3d",
+                "fill": "none"
+            },
+            {
+                "d": "M 0 0.3 l 1 1.4 l 1 -1.4",
+                "stroke_width": 0.4,
+                "stroke": "#322b3d",
+                "fill": "none"
+            }
+        ]
+    },
+    "wp": {
+        "style": "line",
+        "args": {
+            "stroke": "#b49f52",
+            "stroke_width": 1.5,
+            "stroke_dasharray": "1.5 1.5"
+        }
+    },
+    "up": {
+        "style": "def",
+        "pattern_w": 3.0,
+        "pattern_h": 2.0,
+        "pattern": [
+            {
+                "d": "M 0 1 l 1.5 1 l 1.5 -1 l -1.5 -1 l -1.5 1",
+                "fill": "#7d5c25",
+                "stroke_width": 0
+            }
+        ]
+    },
+    "crip": {
+        "style": "def",
+        "pattern_w": 4.0,
+        "pattern_h": 1.5,
+        "pattern": [
+            {
+                "d": "M 0 0.75 a 4 4 0 0 0 3.5 0 a 4 4 0 0 0 -3.5 0",
+                "fill": "black",
+                "stroke_width": 0
+            }
+        ]
+    },
+    "sp": {
+        "style": "def",
+        "pattern_w": 2.0,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0 a 1 1 0 0 0 2 0 a 1 1 0 0 0 -2 0",
+                "fill": "#9f9b3d",
+                "stroke_width": 0
+            }
+        ]
+    },
+    "cmstpp": {
+        "style": "def",
+        "pattern_w": 1.5,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0 l 0.5 1 l 1 -1 l -0.5 -1 l -1 1",
+                "fill": "#9f5f7d",
+                "stroke_width": 0
+            }
+        ]
+    },
+    "ln": {
+        "style": "def",
+        "pattern_w": 1.5,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0 l 0.5 1 l 1 -1 l -0.5 -1 l -1 1",
+                "fill": "#64869f",
+                "stroke_width": 0
+            }
+        ]
+    },
+    "cnw": {
+        "style": "def",
+        "pattern_w": 3.0,
+        "pattern_h": 2.0,
+        "pattern": [
+            {
+                "d": "M 0 1 a 1 1 0 0 0 2 0 a 1 1 0 0 0 -2 0",
+                "stroke_width": 0,
+                "fill": "#8fa656"
+            }
+        ]
+    },
+    "mp": {
+        "style": "line",
+        "args": {
+            "stroke": "#8d9b2a",
+            "stroke_width": 1.5,
+            "stroke_dasharray": "1.5 1.5"
+        }
+    },
+    "ic": {
+        "style": "def",
+        "pattern_w": 4.0,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0 a 4 4 0 0 0 4 0 a 4 4 0 0 0 -4 0",
+                "fill": "none",
+                "stroke": "#633026",
+                "stroke_width": 0.6
+            }
+        ]
+    },
+    "cbq": {
+        "style": "line",
+        "args": {
+            "stroke": "#b5a968",
+            "stroke_width": 1.5,
+            "stroke_dasharray": "0.5 0.5"
+        }
+    },
+    "rfp": {
+        "style": "def",
+        "pattern_w": 2.0,
+        "pattern_h": 0.0,
+        "pattern": [{
+            "d": "M 0 0 l 1 1 l 1 -1 l -1 -1 l -1 1",
+            "fill": "#3c3f70",
+            "stroke_width": 0
+        }]
+    },
+    "sal": {
+        "style": "def",
+        "pattern_w": 4.0,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0 a 4 4 0 0 0 4 0 a 4 4 0 0 0 -4 0",
+                "fill": "none",
+                "stroke": "#b5a274",
+                "stroke_width": 0.6
+            }
+        ]
+    },
+    "sou": {
+        "style": "def",
+        "pattern_w": 2.0,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0.5 a 1.5 1.5 0 0 0 2 0 l 1 -1 a 1.5 1.5 0 0 0 -2 0 l -1 1",
+                "fill": "#2e633a",
+                "stroke": "#2e633a",
+                "stroke_width": 0.1
+            }
+        ]
+    },
+    "acl": {
+        "style": "def",
+        "pattern_w": 2.0,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0.5 l 2.1 0",
+                "stroke": "#70453c",
+                "stroke_width": 1
+            },
+            {
+                "d": "M 0 0.5 l 1 -1.5 l 1 1.5 l -2 0",
+                "stroke_width": 0,
+                "fill": "#70453c"
+            }
+        ]
+    },
+    "co": {
+        "style": "def",
+        "pattern_w": 4.0,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0 a 2 2 0 0 0 2 0 a 2 2 0 0 1 2 0",
+                "stroke": "#9e933c",
+                "stroke_width": 1.0
+            }
+        ]
+    },
+    "bo": {
+        "style": "line",
+        "args": {
+            "stroke": "#355980",
+            "stroke_width": 1.5,
+            "stroke_dasharray": "3 1.5"
+        }
+    },
+    "nynhh": {
+        "style": "line",
+        "args": {
+            "stroke": "#762d1c",
+            "stroke_width": 1.5,
+            "stroke_dasharray": "0.5 0.5"
+        }
+    },
+    "bm": {
+        "style": "def",
+        "pattern_w": 1.5,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0 l 0.5 1 l 1 -1 l -0.5 -1 l -1 1",
+                "fill": "#202352",
+                "stroke_width": 0
+            }
+        ]
+    },
+    "pa": {
+        "style": "def",
+        "pattern_w": 4.0,
+        "pattern_h": 0.0,
+        "pattern": [
+            {
+                "d": "M 0 0.6 l 4 0 l -0.5 0 l -1.5 -1.2 l -1.5 1.2 l -0.5 0",
+                "stroke": "#c13e1b",
+                "fill": "#c13e1b",
+                "stroke_width": 0.5
+            }
+        ]
+    },
+    "nyc": {
+        "style": "def",
+        "pattern_w": 4.0,
+        "pattern_h": 2.0,
+        "pattern": [
+            {
+                "d": "M 0 1.6 l 4 0",
+                "stroke_width": 0.8,
+                "stroke": "#396854"
+            },
+            {
+                "d": "M 1.5 1 l 2 0",
+                "stroke_width": 1,
+                "stroke": "#396854"
+            },
+            {
+                "d": "M 0 0.4 l 4 0",
+                "stroke_width": 0.8,
+                "stroke": "#396854"
+            }
+        ]
+    }
+}

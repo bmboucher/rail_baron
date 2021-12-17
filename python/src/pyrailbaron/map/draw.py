@@ -7,7 +7,7 @@ from pyrailbaron.map.states import get_border_data, get_region_border_points
 from pyrailbaron.map.svg import MapSvg, MapSvgLayer, transform_lcc, transform_dxf
 from pyrailbaron.map.datamodel import Map, Coordinate, distance
 from typing import List, Tuple
-from math import atan2, pi, sin, cos
+from math import atan2, pi, sin, cos, floor
 
 def get_parallels(p1: Coordinate, p2: Coordinate, n: int, spacing: float) \
         -> List[Tuple[Coordinate, Coordinate]]:
@@ -24,6 +24,23 @@ def get_parallels(p1: Coordinate, p2: Coordinate, n: int, spacing: float) \
         c_x += inc_x
         c_y += inc_y
     return parallels
+
+def duplicate_border_pattern(rr_layer: MapSvgLayer, 
+        p1: Coordinate, p2: Coordinate, 
+        pattern, pattern_w: float, pattern_h: float):
+    d = distance(p1,p2)
+    n = floor(d / pattern_w)
+    x1,y1 = p1
+    x2,y2 = p2
+    x_d,y_d = x2-x1,y2-y1
+    a = atan2(y_d,x_d)
+    start_d = (d - n * pattern_w)/2
+    x,y = x1 + (start_d/d) * x_d + (pattern_h/2)*cos(a - pi/2), \
+          y1 + (start_d/d) * y_d + (pattern_h/2)*sin(a - pi/2)
+    for _ in range(n):
+        rr_layer.use(pattern, (x,y), a)
+        x += (pattern_w/d) * x_d
+        y += (pattern_w/d) * y_d
 
 def main(root_dir):
     map_json = Path(root_dir) / 'output/map.json'
@@ -56,8 +73,20 @@ def main(root_dir):
             fill=fill_color, stroke_width=0.25)
 
     holes = svg.layer('holes')
-    #labels = svg.layer('labels')
+    labels = svg.layer('labels')
     rr_layer = svg.layer('rr')
+    with (root_dir / 'data/rr_patterns.json').open('r') as rr_patterns_file:
+        rr_patterns = json.load(rr_patterns_file)
+
+    pattern_defs = {}
+    for rr, pattern in rr_patterns.items():
+        if pattern['style'] == 'def':
+            pattern_g = svg.defs.add(svg.g(id=f'{rr}_pattern'))
+            for path_data in pattern['pattern']:
+                p = svg.path(**path_data)
+                pattern_g.add(p)
+            pattern_defs[rr] = pattern_g
+
     for p in map.points:
         holes.circle(p.final_svg_coords, 2.6, stroke='blue', stroke_width=0.01,
             fill = 'none')
@@ -65,22 +94,31 @@ def main(root_dir):
             #labels.text(p.place_name.upper(), p.final_svg_coords, font_size='5px')
             pass
         else:
-            #labels.text(str(p.index), p.final_svg_coords, font_size='4px')
+            labels.text(str(p.index), p.final_svg_coords, font_size='4px')
             pass
         conn_map = {}
         for rr in p.connections:
             for j in p.connections[rr]:
                 if p.index < j:
                     if j not in conn_map:
-                        conn_map[j] = 0
-                    conn_map[j] += 1
+                        conn_map[j] = []
+                    conn_map[j].append(rr)
         for p_idx in conn_map:
-            n_segs = conn_map[p_idx]
+            n_segs = len(conn_map[p_idx])
             other_p = map.points[p_idx]
             segs = get_parallels(p.final_svg_coords, other_p.final_svg_coords,
                 n_segs, 2)
-            for p1,p2 in segs:
-                rr_layer.line(p1, p2, stroke='red', stroke_width=1.0)
+            for i,(p1,p2) in enumerate(segs):
+                rr = conn_map[p_idx][i]
+                if rr in rr_patterns:
+                    pattern = rr_patterns[rr]
+                    if pattern['style'] == 'line':
+                        rr_layer.line(p1, p2, **pattern['args'])
+                    elif pattern['style'] == 'def':
+                        duplicate_border_pattern(rr_layer, p1, p2,
+                            pattern_defs[rr], pattern['pattern_w'], pattern['pattern_h'])
+                else:
+                    rr_layer.line(p1, p2, stroke='red', stroke_width=1.0)
 
     cities = svg.layer('cities')
     for p in map.points:
