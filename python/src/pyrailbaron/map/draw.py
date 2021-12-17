@@ -45,7 +45,7 @@ def duplicate_border_pattern(rr_layer: MapSvgLayer,
 def main(root_dir):
     map_json = Path(root_dir) / 'output/map.json'
     with map_json.open('rt') as map_file:
-        map: Map = Map.from_json(map_file.read())
+        m: Map = Map.from_json(map_file.read())
     
     def shift_up(c: Coordinate) -> Coordinate:
         x, y = c
@@ -53,7 +53,7 @@ def main(root_dir):
 
     svg = MapSvg(Path(root_dir) / 'output/map.svg')
     svg.transforms = [shift_up]
-    geo_transforms = [transform_lcc, map.map_transform, transform_dxf, shift_up]
+    geo_transforms = [transform_lcc, m.map_transform, transform_dxf, shift_up]
 
     borders = get_border_data(Path(root_dir) / 'data')
     with (root_dir / 'data/region_borders.json').open('rt') as region_file:
@@ -77,6 +77,9 @@ def main(root_dir):
     rr_layer = svg.layer('rr')
     with (root_dir / 'data/rr_patterns.json').open('r') as rr_patterns_file:
         rr_patterns = json.load(rr_patterns_file)
+    with (root_dir / 'data/triangles.csv').open('r') as triangles_file:
+        triangles = [[r[0]] + list(map(int, r[1:])) 
+            for r in csv.reader(triangles_file) if len(r) >= 4]
 
     pattern_defs = {}
     for rr, pattern in rr_patterns.items():
@@ -87,7 +90,7 @@ def main(root_dir):
                 pattern_g.add(p)
             pattern_defs[rr] = pattern_g
 
-    for p in map.points:
+    for p in m.points:
         holes.circle(p.final_svg_coords, 2.6, stroke='blue', stroke_width=0.01,
             fill = 'none')
         if len(p.city_names) > 0:
@@ -100,12 +103,20 @@ def main(root_dir):
         for rr in p.connections:
             for j in p.connections[rr]:
                 if p.index < j:
+                    triangle_skip = False
+                    for t in triangles:
+                        # Don't draw two legs of each triangle
+                        if ((p.index == t[1] and j in t[2:]) or 
+                            (p.index in t[2:]) and j == t[1]):
+                            triangle_skip = True
+                    if triangle_skip:
+                        continue
                     if j not in conn_map:
                         conn_map[j] = []
                     conn_map[j].append(rr)
         for p_idx in conn_map:
             n_segs = len(conn_map[p_idx])
-            other_p = map.points[p_idx]
+            other_p = m.points[p_idx]
             segs = get_parallels(p.final_svg_coords, other_p.final_svg_coords,
                 n_segs, 2)
             for i,(p1,p2) in enumerate(segs):
@@ -120,8 +131,20 @@ def main(root_dir):
                 else:
                     rr_layer.line(p1, p2, stroke='red', stroke_width=1.0)
 
+    for rr, p1, p2, p3 in triangles:
+        pattern = rr_patterns[rr]
+        c1 = m.points[p1].final_svg_coords
+        x2,y2 = m.points[p2].final_svg_coords
+        x3,y3 = m.points[p3].final_svg_coords
+        mid_p = ((x2+x3)/2,(y2+y3)/2)
+        if pattern['style'] == 'line':
+            rr_layer.line(c1,mid_p,**pattern['args'])
+        elif pattern['style'] == 'def':
+            duplicate_border_pattern(rr_layer, c1, mid_p, pattern_defs[rr],
+                pattern['pattern_w'], pattern['pattern_h'])
+
     cities = svg.layer('cities')
-    for p in map.points:
+    for p in m.points:
         if len(p.city_names) == 0:
             cities.circle(p.final_svg_coords, 1.5, fill='white', stroke='black',
                 stroke_width=1, stroke_linecap='round', stroke_linejoin='round')
@@ -137,7 +160,7 @@ def main(root_dir):
         if posType == 'c':
             try:
                 search_text = text.replace(r'\n','').replace(' ','').upper()
-                city_pt = next(p for p in map.points 
+                city_pt = next(p for p in m.points 
                     if p.place_name.upper().replace(' ','') == search_text
                     and len(p.city_names) > 0)
                 city_x, city_y = city_pt.final_svg_coords
