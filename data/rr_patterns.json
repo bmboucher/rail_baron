@@ -1,12 +1,16 @@
 {
     "gmo": {
+        "label": "GM&O",
+        "price": 12000,
         "style": "line",
         "args": {
-            "stroke":"#342f4c",
+            "stroke":"indigo",
             "stroke_width": 1.0
         }
     },
     "gn": {
+        "label": "GN",
+        "price": 17000,
         "style": "line",
         "args": {
             "stroke":"#45779b",
@@ -14,6 +18,8 @@
         }
     },
     "nw": {
+        "label": "N&W",
+        "price": 12000,
         "style": "line",
         "args": {
             "stroke": "black",
@@ -21,6 +27,8 @@
         }
     },
     "np": {
+        "label": "NP",
+        "price": 14000,
         "style": "line",
         "args": {
             "stroke": "#694947",
@@ -29,6 +37,8 @@
         }
     },
     "slsf": {
+        "label": "SLSF",
+        "price": 19000,
         "style": "def",
         "pattern_w": 3.0,
         "pattern": [
@@ -40,6 +50,8 @@
         ]
     },
     "atsf": {
+        "label": "AT&SF",
+        "price": 40000,
         "style": "def",
         "pattern_w": 2.0,
         "pattern": [
@@ -56,6 +68,8 @@
         ]
     },
     "drgw": {
+        "label": "D&RGW",
+        "price": 6000,
         "style": "def",
         "pattern_w": 4.0,
         "pattern": [
@@ -77,6 +91,8 @@
         ]
     },
     "tp": {
+        "label": "T&P",
+        "price": 10000,
         "style": "def",
         "pattern_w": 2.0,
         "pattern": [
@@ -107,6 +123,8 @@
         ]
     },
     "wp": {
+        "label": "WP",
+        "price": 8000,
         "style": "line",
         "args": {
             "stroke": "#b49f52",
@@ -115,6 +133,8 @@
         }
     },
     "up": {
+        "label": "UP",
+        "price": 40000,
         "style": "def",
         "pattern_w": 3.0,
         "pattern": [
@@ -126,6 +146,8 @@
         ]
     },
     "crip": {
+        "label": "CRI&P",
+        "price": 29000,
         "style": "def",
         "pattern_w": 4.0,
         "pattern": [
@@ -137,6 +159,8 @@
         ]
     },
     "sp": {
+        "label": "SP",
+        "price": 42000,
         "style": "def",
         "pattern_w": 2.0,
         "pattern": [
@@ -148,6 +172,8 @@
         ]
     },
     "cmstpp": {
+        "label": "CMSTP&P",
+        "price": 18000,
         "style": "def",
         "pattern_w": 1.5,
         "pattern": [
@@ -159,6 +185,8 @@
         ]
     },
     "ln": {
+        "label": "L&N",
+        "price": 18000,
         "style": "def",
         "pattern_w": 1.5,
         "pattern": [
@@ -170,6 +198,8 @@
         ]
     },
     "cnw": {
+        "label": "C&NW",
+        "price": 14000,
         "style": "def",
         "pattern_w": 3.0,
         "pattern": [
@@ -181,6 +211,8 @@
         ]
     },
     "mp": {
+        "label": "MP",
+        "price": 21000,
         "style": "line",
         "args": {
             "stroke": "#8d9b2a",
@@ -189,6 +221,8 @@
         }
     },
     "ic": {
+        "label": "IC",
+        "price": 14000,
         "style": "def",
         "pattern_w": 4.0,
         "pattern": [
@@ -201,14 +235,18 @@
         ]
     },
     "cbq": {
+        "label": "CB&Q",
+        "price": 20000,
         "style": "line",
         "args": {
-            "stroke": "#b5a968",
-            "stroke_width": 1.5,
-            "stroke_dasharray": "0.5 0.5"
+            "stroke": "darkorange",
+            "stroke_width": 1.8,
+            "stroke_dasharray": "0.6 0.4"
         }
     },
     "rfp": {
+        "label": "RF&P",
+        "price": 4000,
         "style": "def",
         "pattern_w": 2.0,
         "pattern": [{
@@ -218,6 +256,8 @@
         }]
     },
     "sal": {
+        "label": "SAL",
+        "price": 14000,
         "style": "def",
         "pattern_w": 4.0,
         "pattern": [
@@ -230,6 +270,8 @@
         ]
     },
     "sou": {
+        "label": "SOU",
+        "price": 20000,
         "style": "def",
         "pattern_w": 2.0,
         "pattern": [
@@ -242,6 +284,8 @@
         ]
     },
     "acl": {
+        "label": "ACL",
+        "price": 12000,
         "style": "def",
         "pattern_w": 2.0,
         "pattern": [
@@ -258,6 +302,8 @@
         ]
     },
     "co": {
+        "label": "C&O",
+        "price": 20000,
         "style": "def",
         "pattern_w": 4.0,
         "pattern": [
@@ -269,6 +315,8 @@
         ]
     },
     "bo": {
+        "label": "B&O",
+        "price": 24000,
         "style": "line",
         "args": {
             "stroke": "#355980",
@@ -277,14 +325,18 @@
         }
     },
     "nynhh": {
+        "label": "NYNH&H",
+        "price": 4000,
         "style": "line",
         "args": {
             "stroke": "#762d1c",
-            "stroke_width": 1.5,
-            "stroke_dasharray": "0.5 0.5"
+            "stroke_width": 1.8,
+            "stroke_dasharray": "0.6 0.4"
         }
     },
     "bm": {
+        "label": "B&M",
+        "price": 4000,
         "style": "def",
         "pattern_w": 1.5,
         "pattern": [
@@ -296,6 +348,8 @@
         ]
     },
     "pa": {
+        "label": "PA",
+        "price": 20000,
         "style": "def",
         "pattern_w": 4.0,
         "pattern": [
@@ -308,6 +362,8 @@
         ]
     },
     "nyc": {
+        "label": "NYC",
+        "price": 28000,
         "style": "def",
         "pattern_w": 4.0,
         "pattern": [

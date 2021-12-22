@@ -77,11 +77,17 @@ def main(root_dir):
             draw_city_label(m, label_layer, text, x, y)
         elif posType == 'r':
             draw_region_label(label_layer, text, x, y)
+        elif posType == 'rr':
+            rr = text.replace('&','').lower()
+            rr_data = rr_patterns[rr]
+            draw_rr_label(rr_data, label_layer, text, x, y)
     
     label_layer.transforms.clear()
     label_layer.text("RAIL BARON", (510,365), 
         font_family='Corrigan ExtraBold', font_size='30px', 
         stroke="#2d6a97", fill="#2d6a97")
+
+    draw_legend(rr_patterns, svg)
 
     # Read state borders geo data
     #canada = get_canada_data(root_dir / 'data')
@@ -91,6 +97,32 @@ def main(root_dir):
     #    canada_layer.path(c, fill='white', stroke='black', stroke_width=1.0)
 
     svg.save()
+
+LEGEND_START_X = 40
+LEGEND_START_Y = 13
+LEGEND_SPACING = 9.25
+LEGEND_LINE_W = 20
+LEGEND_TEXT_M = 3
+LEGEND_TEXT_H = 4
+def draw_legend(rr_patterns, svg: MapSvg):
+    legend_layer = svg.layer('legend')
+    legend_layer.transforms.clear()
+    sorted_rr_names = list(sorted(sorted(rr_patterns.keys()), 
+        key = lambda rr: rr_patterns[rr]['price']))
+    x = LEGEND_START_X
+    y = LEGEND_START_Y
+    for rr in sorted_rr_names:
+        rr_data = rr_patterns[rr]
+        if rr_data['style'] == 'line':
+            rr_color = rr_data['args']['stroke']
+        else:
+            first_path = rr_data['pattern'][0]
+            rr_color = first_path['stroke'] if 'stroke' in first_path else first_path['fill']
+        legend_layer.draw_rr((x,y),(x+LEGEND_LINE_W,y),rr,rr_patterns[rr])
+        legend_layer.text(rr_data['label'], (x+LEGEND_LINE_W+LEGEND_TEXT_M,y+LEGEND_TEXT_H/2), 
+            fill=rr_color, font_family='Verdana', font_size='5px', font_weight='bold')
+        legend_layer.circle((x-6,y),2,stroke='black',stroke_width=1.0,fill='white')
+        y += LEGEND_SPACING
 
 def draw_background(svg):
     background = svg.layer('background')
@@ -184,6 +216,16 @@ def draw_region_label(label_layer: MapSvgLayer, text: str, x: float, y: float):
         label_layer.text(line, (x,y), font_family='Impact', stroke='black',
             stroke_width=0.25, fill='none', font_size='10px')
         y += 12
+
+def draw_rr_label(rr_data, label_layer, text, x, y):
+    if rr_data['style'] == 'line':
+        rr_color = rr_data['args']['stroke']
+    else:
+        first_path = rr_data['pattern'][0]
+        rr_color = first_path['stroke'] if 'stroke' in first_path else first_path['fill']
+    label_layer.text(text, (x,y), font_family='Verdana', stroke='none',
+        font_weight='bold', fill=rr_color, font_size='4px')
+
 
 def draw_map_points(m, svg):
     cities = svg.layer('cities')
