@@ -3,7 +3,7 @@ from typing import List, Callable, Dict
 import json
 import csv
 
-from pyrailbaron.map.states import get_border_data, get_region_border_points
+from pyrailbaron.map.states import get_border_data, get_region_border_points, get_canada_data
 from pyrailbaron.map.svg import MAX_SVG_WIDTH, MapSvg, MapSvgLayer, transform_lcc, transform_dxf, MAX_SVG_HEIGHT
 from pyrailbaron.map.datamodel import Map, MapPoint, Coordinate, distance
 from typing import List, Tuple
@@ -70,16 +70,25 @@ def main(root_dir):
     # Draw the circle/square at each map point on top of the RR layers
     draw_map_points(m, svg)
 
-    labels = svg.layer('labels')
+    label_layer = svg.layer('labels')
     for text, posType, x_s, y_s in svg_text:
         x,y = float(x_s), float(y_s)
         if posType == 'c':
-            draw_city_label(m, labels, text, x, y)
+            draw_city_label(m, label_layer, text, x, y)
+        elif posType == 'r':
+            draw_region_label(label_layer, text, x, y)
     
-    labels.transforms.clear()
-    labels.text("RAIL BARON", (510,365), 
+    label_layer.transforms.clear()
+    label_layer.text("RAIL BARON", (510,365), 
         font_family='Corrigan ExtraBold', font_size='30px', 
         stroke="#2d6a97", fill="#2d6a97")
+
+    # Read state borders geo data
+    #canada = get_canada_data(root_dir / 'data')
+    #canada_layer = svg.layer('canada')
+    #canada_layer.transforms = geo_transforms.copy()
+    #for c in canada:
+    #    canada_layer.path(c, fill='white', stroke='black', stroke_width=1.0)
 
     svg.save()
 
@@ -169,6 +178,12 @@ def draw_city_label(m: Map, label_layer: MapSvgLayer, text: str, x: float, y: fl
             y += 4
     except StopIteration:
         print(f'Could not find city for {text}')
+
+def draw_region_label(label_layer: MapSvgLayer, text: str, x: float, y: float):
+    for line in text.split(r'\n'):
+        label_layer.text(line, (x,y), font_family='Impact', stroke='black',
+            stroke_width=0.25, fill='none', font_size='10px')
+        y += 12
 
 def draw_map_points(m, svg):
     cities = svg.layer('cities')

@@ -3,45 +3,80 @@ import urllib.request
 import zipfile
 from xml.etree import ElementTree as ET
 from pyrailbaron.map.datamodel import Coordinate, distance
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
-BorderData = Dict[str, List[List[Coordinate]]]
-def get_border_data(data_folder) -> BorderData:
-    data_path = Path(data_folder) / 'st_us.kml'
-    if not data_path.exists():
-        print('Downloading state border data from NOAA...')
-        zip_path, _ = urllib.request.urlretrieve(
-            'https://www.nohrsc.noaa.gov/data/vector/master/st_us.kmz')
-        print(f'Extracting from zip file at {zip_path}...')
-        with zipfile.ZipFile(zip_path, 'r') as zip:
-            zip.extract('st_us.kml', data_path.parent)
-        Path(zip_path).unlink()
-    root = None
+def download_zip(url: str, data_path: Path, inner_file: str = None):
+    if data_path.exists():
+        return
+    print(f'Downloading zip file from {url}')
+    zip_path, _ = urllib.request.urlretrieve(url)
+    print(f'Extracting from temporary file {zip_path}')
+    inner_file = inner_file or data_path.name
+    with zipfile.ZipFile(zip_path, 'r') as zip:
+        zip.extract(inner_file, data_path.parent)
+    if inner_file != data_path.name:
+        (data_path.parent / inner_file).rename(data_path)
+    Path(zip_path).unlink()
+    print(f'File {inner_file} extracted to {data_path}')
+
+def extract_kml(data_path: Path, root_tag: str = 'Document') -> ET.Element:
+    root: Optional[ET.Element] = None
     with (data_path).open('r') as data_file:
         cursor = ET.iterparse(data_file)
         for _, el in cursor:
             _, _, el.tag = el.tag.rpartition('}')
-            if el.tag == 'Document':
+            if el.tag == root_tag:
                 root = el
+    if root:
+        return root
+    else:
+        raise RuntimeError(f'{root_tag} node not found in {data_path}')
+
+def parse_kml_coords(coord_text: str) -> List[Coordinate]:
+    def parse_coords(s: str) -> Coordinate:
+        p = s.split(',')
+        return float(p[1]), float(p[0]) # We use lat,lon convention
+    raw_coords = list(map(parse_coords, 
+        (c for c in coord_text.split(' ') if ',' in c)))
+    coords = [raw_coords[0]]
+    for c in raw_coords[1:-1]:
+        if distance(c, coords[-1]) > 0.05:
+            coords.append(c)
+    coords.append(raw_coords[-1])
+    return coords
+
+BorderData = Dict[str, List[List[Coordinate]]]
+def get_border_data(data_folder) -> BorderData:
+    data_path = Path(data_folder) / 'st_us.kml'
+    download_zip('https://www.nohrsc.noaa.gov/data/vector/master/st_us.kmz',
+        data_path)
+    root = extract_kml(data_path)
 
     borders = dict()
     for folder in root.findall('Folder'):
         state = folder.find('name').text
         lines = []
         for line in folder.findall('./Placemark/MultiGeometry/LineString'):
-            def parse_coords(s: str) -> Coordinate:
-                p = s.split(',')
-                return float(p[1]), float(p[0]) # We use lat,lon convention
             coord_text = line.find('coordinates').text
-            raw_coords = list(map(parse_coords, 
-                (c for c in coord_text.split(' ') if ',' in c)))
-            coords = [raw_coords[0]]
-            for c in raw_coords[1:-1]:
-                if distance(c, coords[-1]) > 0.05:
-                    coords.append(c)
-            coords.append(raw_coords[-1])
-            lines.append(coords)
+            lines.append(parse_kml_coords(coord_text))
         borders[state] = lines
+    return borders
+
+CANADA_URL = ('https://www12.statcan.gc.ca/census-recensement/2011' +
+              '/geo/bound-limit/files-fichiers/gpr_000b11g_e.zip')
+MAX_LAT = 53
+def get_canada_data(data_folder) -> List[List[Coordinate]]:
+    data_path = Path(data_folder) / 'canada.gml'
+    download_zip(CANADA_URL, data_path, 'lpr_000b16g_e.gml')
+    root = extract_kml(data_path, root_tag='FeatureCollection')
+    borders: List[List[Coordinate]] = []
+    for border in root.findall('./featureMember/../LinearRing'):
+        coord_text = border.find('posList').text
+        border = parse_kml_coords(coord_text)
+        if len(border) > 10 and any(lat <= MAX_LAT for lat,_ in border):
+            print(f'Adding CA border of length {len(border)}')
+            t_border = [(min(lat, MAX_LAT), lon) for lat,lon in border]
+            borders.append(t_border)
     return borders
 
 def get_region_border_points(
