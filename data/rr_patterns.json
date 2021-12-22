@@ -31,10 +31,9 @@
     "slsf": {
         "style": "def",
         "pattern_w": 3.0,
-        "pattern_h": 2.0,
         "pattern": [
             {
-                "d": "M 0 1 a 1 1 0 0 0 2 0 a 1 1 0 0 0 -2 0",
+                "d": "M 0 0 a 1 1 0 0 0 2 0 a 1 1 0 0 0 -2 0",
                 "stroke_width": 0,
                 "fill": "#a0627c"
             }
@@ -43,15 +42,14 @@
     "atsf": {
         "style": "def",
         "pattern_w": 2.0,
-        "pattern_h": 2.0,
         "pattern": [
             {
-                "d": "M 0 0 l 1 0 l 0 1 l -1 0",
+                "d": "M 0 0 l 1 0 l 0 -1 l -1 0",
                 "stroke_width": 0,
                 "fill": "#376788"
             },
             {
-                "d": "M 1 1 l 1 0 l 0 1 l -1 0",
+                "d": "M 1 0 l 1 0 l 0 1 l -1 0",
                 "stroke_width": 0,
                 "fill": "#376788"
             }
@@ -60,20 +58,19 @@
     "drgw": {
         "style": "def",
         "pattern_w": 4.0,
-        "pattern_h": 2.0,
         "pattern": [
             {
-                "d": "M 0 1.6 l 4 0",
+                "d": "M 0 0.6 l 4 0",
                 "stroke_width": 0.8,
                 "stroke": "#c16b2e"
             },
             {
-                "d": "M 1.5 1 l 2 0",
+                "d": "M 1.5 0 l 2 0",
                 "stroke_width": 1,
                 "stroke": "#c16b2e"
             },
             {
-                "d": "M 0 0.4 l 4 0",
+                "d": "M 0 -0.6 l 4 0",
                 "stroke_width": 0.8,
                 "stroke": "#c16b2e"
             }
@@ -82,28 +79,27 @@
     "tp": {
         "style": "def",
         "pattern_w": 2.0,
-        "pattern_h": 2.0,
         "pattern": [
             {
-                "d": "M 0 0.3 l 2 0",
+                "d": "M 0 -0.7 l 2 0",
                 "stroke_width": 0.6,
                 "stroke": "#322b3d",
                 "fill": "none"
             },
             {
-                "d": "M 0 1.7 l 2 0",
+                "d": "M 0 0.7 l 2 0",
                 "stroke_width": 0.6,
                 "stroke": "#322b3d",
                 "fill": "none"
             },
             {
-                "d": "M 0 1 l 2 0",
+                "d": "M 0 0 l 2 0",
                 "stroke_width": 0.4,
                 "stroke": "#322b3d",
                 "fill": "none"
             },
             {
-                "d": "M 0 0.3 l 1 1.4 l 1 -1.4",
+                "d": "M 0 -0.7 l 1 1.4 l 1 -1.4",
                 "stroke_width": 0.4,
                 "stroke": "#322b3d",
                 "fill": "none"
@@ -121,10 +117,9 @@
     "up": {
         "style": "def",
         "pattern_w": 3.0,
-        "pattern_h": 2.0,
         "pattern": [
             {
-                "d": "M 0 1 l 1.5 1 l 1.5 -1 l -1.5 -1 l -1.5 1",
+                "d": "M 0 0 l 1.5 1 l 1.5 -1 l -1.5 -1 l -1.5 1",
                 "fill": "#7d5c25",
                 "stroke_width": 0
             }
@@ -133,10 +128,9 @@
     "crip": {
         "style": "def",
         "pattern_w": 4.0,
-        "pattern_h": 1.5,
         "pattern": [
             {
-                "d": "M 0 0.75 a 4 4 0 0 0 3.5 0 a 4 4 0 0 0 -3.5 0",
+                "d": "M 0 0 a 4 4 0 0 0 3.5 0 a 4 4 0 0 0 -3.5 0",
                 "fill": "black",
                 "stroke_width": 0
             }
@@ -145,7 +139,6 @@
     "sp": {
         "style": "def",
         "pattern_w": 2.0,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0 a 1 1 0 0 0 2 0 a 1 1 0 0 0 -2 0",
@@ -157,7 +150,6 @@
     "cmstpp": {
         "style": "def",
         "pattern_w": 1.5,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0 l 0.5 1 l 1 -1 l -0.5 -1 l -1 1",
@@ -169,7 +161,6 @@
     "ln": {
         "style": "def",
         "pattern_w": 1.5,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0 l 0.5 1 l 1 -1 l -0.5 -1 l -1 1",
@@ -181,10 +172,9 @@
     "cnw": {
         "style": "def",
         "pattern_w": 3.0,
-        "pattern_h": 2.0,
         "pattern": [
             {
-                "d": "M 0 1 a 1 1 0 0 0 2 0 a 1 1 0 0 0 -2 0",
+                "d": "M 0 0 a 1 1 0 0 0 2 0 a 1 1 0 0 0 -2 0",
                 "stroke_width": 0,
                 "fill": "#8fa656"
             }
@@ -201,7 +191,6 @@
     "ic": {
         "style": "def",
         "pattern_w": 4.0,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0 a 4 4 0 0 0 4 0 a 4 4 0 0 0 -4 0",
@@ -222,7 +211,6 @@
     "rfp": {
         "style": "def",
         "pattern_w": 2.0,
-        "pattern_h": 0.0,
         "pattern": [{
             "d": "M 0 0 l 1 1 l 1 -1 l -1 -1 l -1 1",
             "fill": "#3c3f70",
@@ -232,7 +220,6 @@
     "sal": {
         "style": "def",
         "pattern_w": 4.0,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0 a 4 4 0 0 0 4 0 a 4 4 0 0 0 -4 0",
@@ -245,7 +232,6 @@
     "sou": {
         "style": "def",
         "pattern_w": 2.0,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0.5 a 1.5 1.5 0 0 0 2 0 l 1 -1 a 1.5 1.5 0 0 0 -2 0 l -1 1",
@@ -258,7 +244,6 @@
     "acl": {
         "style": "def",
         "pattern_w": 2.0,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0.5 l 2.1 0",
@@ -275,7 +260,6 @@
     "co": {
         "style": "def",
         "pattern_w": 4.0,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0 a 2 2 0 0 0 2 0 a 2 2 0 0 1 2 0",
@@ -303,7 +287,6 @@
     "bm": {
         "style": "def",
         "pattern_w": 1.5,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0 l 0.5 1 l 1 -1 l -0.5 -1 l -1 1",
@@ -315,7 +298,6 @@
     "pa": {
         "style": "def",
         "pattern_w": 4.0,
-        "pattern_h": 0.0,
         "pattern": [
             {
                 "d": "M 0 0.6 l 4 0 l -0.5 0 l -1.5 -1.2 l -1.5 1.2 l -0.5 0",
@@ -328,20 +310,19 @@
     "nyc": {
         "style": "def",
         "pattern_w": 4.0,
-        "pattern_h": 2.0,
         "pattern": [
             {
-                "d": "M 0 1.6 l 4 0",
+                "d": "M 0 0.6 l 4 0",
                 "stroke_width": 0.8,
                 "stroke": "#396854"
             },
             {
-                "d": "M 1.5 1 l 2 0",
+                "d": "M 1.5 0 l 2 0",
                 "stroke_width": 1,
                 "stroke": "#396854"
             },
             {
-                "d": "M 0 0.4 l 4 0",
+                "d": "M 0 -0.6 l 4 0",
                 "stroke_width": 0.8,
                 "stroke": "#396854"
             }

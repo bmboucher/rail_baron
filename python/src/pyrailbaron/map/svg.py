@@ -1,9 +1,9 @@
 from pyrailbaron.map.inkscape import InkscapeDrawing
 from svgwrite.container import Group
 from typing import Tuple, List, Callable
-from math import sin, cos, pi, log, tan, sqrt, atan
+from math import sin, cos, pi, log, tan, sqrt, atan, floor, atan2
 
-from pyrailbaron.map.datamodel import Coordinate
+from pyrailbaron.map.datamodel import Coordinate, distance
 
 MAX_SVG_WIDTH = 787
 MAX_SVG_HEIGHT = 381
@@ -17,12 +17,21 @@ class MapSvg(InkscapeDrawing):
         super().__init__(*args, **kwargs)
         self.layers = []
         self.transforms = []
+        self.patterns = dict()
 
     def layer(self, label: str, **kwargs) -> 'MapSvgLayer':
         g = super().layer(label=label, **kwargs)
         l = MapSvgLayer(self, g, self.transforms)
         self.layers.append(l.g)
         return l
+
+    def add_pattern(self, name: str, paths):
+        id = f'__{name}'
+        pattern_g = self.defs.add(self.g(id=id))
+        for path_data in paths:
+            p = self.path(**path_data)
+            pattern_g.add(p)
+        self.patterns[name] = pattern_g
 
     def save(self, *args, **kwargs):
         for l in self.layers:
@@ -51,6 +60,10 @@ class MapSvgLayer:
         p = self.parent.path(d='M', **kwargs)
         for pt in pts:
             p.push(self.apply_transforms(pt))
+        self.g.add(p)
+
+    def custom_path(self, **kwargs):
+        p = self.parent.path(**kwargs)
         self.g.add(p)
 
     def square(self, c: Coordinate, s: float, angle_deg: float, **kwargs):
@@ -90,6 +103,27 @@ class MapSvgLayer:
         u = self.parent.use(href, insert=insert, **kwargs)
         u.rotate(rotation*180/pi, center=insert)
         self.g.add(u)
+
+    def draw_rr(self, p1: Coordinate, p2: Coordinate, rr: str, pattern_data):
+        if pattern_data['style'] == 'line':
+            self.line(p1, p2, **pattern_data['args'])
+        elif pattern_data['style'] == 'def':
+            if rr not in self.parent.patterns:
+                self.parent.add_pattern(rr, pattern_data['pattern'])
+            d = distance(p1,p2)
+            pattern_w = pattern_data['pattern_w']
+            n = floor(d / pattern_w)
+            x1,y1 = p1
+            x2,y2 = p2
+            x_d,y_d = x2-x1,y2-y1
+            a = atan2(y_d,x_d)
+            start_d = (d - n * pattern_w)/2
+            x,y = x1 + (start_d/d) * x_d, \
+                y1 + (start_d/d) * y_d
+            for _ in range(n):
+                self.use(self.parent.patterns[rr], (x,y), a)
+                x += (pattern_w/d) * x_d
+                y += (pattern_w/d) * y_d
 
 # The mapping from original .dxf files to the final assembled .svg is fixed
 # in this file rather than recalculated based on data each time; this provides
