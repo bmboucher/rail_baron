@@ -264,7 +264,7 @@
             {
                 "d": "M 0 0 a 4 4 0 0 0 4 0 a 4 4 0 0 0 -4 0",
                 "fill": "none",
-                "stroke": "#b5a274",
+                "stroke": "gold",
                 "stroke_width": 0.6
             }
         ]
@@ -309,7 +309,7 @@
         "pattern": [
             {
                 "d": "M 0 0 a 2 2 0 0 0 2 0 a 2 2 0 0 1 2 0",
-                "stroke": "#9e933c",
+                "stroke": "chocolate",
                 "stroke_width": 1.0
             }
         ]

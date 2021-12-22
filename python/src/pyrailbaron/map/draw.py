@@ -3,7 +3,8 @@ from typing import List, Callable, Dict
 import json
 import csv
 
-from pyrailbaron.map.states import get_border_data, get_region_border_points, get_canada_data
+from pyrailbaron.map.canada import get_canada_data
+from pyrailbaron.map.states import get_border_data, get_region_border_points
 from pyrailbaron.map.svg import MAX_SVG_WIDTH, MapSvg, MapSvgLayer, transform_lcc, transform_dxf, MAX_SVG_HEIGHT
 from pyrailbaron.map.datamodel import Map, MapPoint, Coordinate, distance
 from typing import List, Tuple
@@ -14,6 +15,8 @@ LC_COLOR = 'blue'
 LC_W = 0.5
 LC_PARAMS = {'stroke': LC_COLOR, 'stroke_width': LC_W, 'fill': 'none'}
 LED_R = 2.6
+
+LOGO_COLOR = "#2d6a97"
 
 def main(root_dir):
     # Read raw map data
@@ -52,6 +55,13 @@ def main(root_dir):
     draw_background(svg)
     draw_laser_cut_layer(m, svg)
 
+    # Read state borders geo data
+    canada = get_canada_data(root_dir / 'data')
+    canada_layer = svg.layer('canada')
+    canada_layer.transforms = geo_transforms.copy()
+    for c in canada:
+        canada_layer.path(c, fill='white', stroke='none', stroke_width=0.5)
+
     # Draw regions (bottom layers)
     for region_name, region_data in regions.items():
         region_layer = svg.layer(region_name)
@@ -85,25 +95,22 @@ def main(root_dir):
     label_layer.transforms.clear()
     label_layer.text("RAIL BARON", (510,365), 
         font_family='Corrigan ExtraBold', font_size='30px', 
-        stroke="#2d6a97", fill="#2d6a97")
+        stroke=LOGO_COLOR, fill=LOGO_COLOR)
+    draw_player_labels(label_layer)
 
     draw_legend(rr_patterns, svg)
+    draw_blackout_layer(svg)
 
-    # Read state borders geo data
-    #canada = get_canada_data(root_dir / 'data')
-    #canada_layer = svg.layer('canada')
-    #canada_layer.transforms = geo_transforms.copy()
-    #for c in canada:
-    #    canada_layer.path(c, fill='white', stroke='black', stroke_width=1.0)
 
     svg.save()
 
-LEGEND_START_X = 40
-LEGEND_START_Y = 13
+LEGEND_START_X = 35
+LEGEND_START_Y = 18
 LEGEND_SPACING = 9.25
-LEGEND_LINE_W = 20
+LEGEND_LINE_W = 26
 LEGEND_TEXT_M = 3
 LEGEND_TEXT_H = 4
+LEGEND_LED_M = 5
 def draw_legend(rr_patterns, svg: MapSvg):
     legend_layer = svg.layer('legend')
     legend_layer.transforms.clear()
@@ -121,7 +128,7 @@ def draw_legend(rr_patterns, svg: MapSvg):
         legend_layer.draw_rr((x,y),(x+LEGEND_LINE_W,y),rr,rr_patterns[rr])
         legend_layer.text(rr_data['label'], (x+LEGEND_LINE_W+LEGEND_TEXT_M,y+LEGEND_TEXT_H/2), 
             fill=rr_color, font_family='Verdana', font_size='5px', font_weight='bold')
-        legend_layer.circle((x-6,y),2,stroke='black',stroke_width=1.0,fill='white')
+        legend_layer.circle((x-LEGEND_LED_M,y),2,stroke='black',stroke_width=1.0,fill='white')
         y += LEGEND_SPACING
 
 def draw_background(svg):
@@ -135,66 +142,94 @@ def draw_laser_cut_layer(m, svg):
     draw_led_holes(m, laser_cut_layer)
     laser_cut_layer.transforms.clear()
     draw_outline(laser_cut_layer)
-    draw_touchscreen(laser_cut_layer)
-    draw_7segment_leds(laser_cut_layer)
-    draw_speaker_holes(laser_cut_layer)
+    draw_oc_holes(laser_cut_layer, **LC_PARAMS)
+    draw_touchscreen(laser_cut_layer, **LC_PARAMS)
+    draw_7segment_leds(laser_cut_layer, **LC_PARAMS)
+    draw_speaker_holes(laser_cut_layer, outline=True, **LC_PARAMS)
+
+def draw_blackout_layer(svg):
+    blackout_layer = svg.layer('blackout')
+    blackout_layer.transforms.clear()
+    BLACKOUT = {'stroke_width': 0, 'fill': 'black'}
+    draw_oc_holes(blackout_layer, **BLACKOUT)
+    draw_touchscreen(blackout_layer, **BLACKOUT)
+    draw_7segment_leds(blackout_layer, **BLACKOUT)
+    draw_speaker_holes(blackout_layer, **BLACKOUT)
+    blackout_outline_corners(blackout_layer, **BLACKOUT)
 
 TOUCHSCREEN_W = 121.5
 TOUCHSCREEN_H = 76.5
-TOUCHSCREEN_M = 25
-def draw_touchscreen(laser_cut_layer):
+TOUCHSCREEN_MX = 25
+TOUCHSCREEN_MY = 20
+def draw_touchscreen(layer: MapSvgLayer, **kwargs):
     touchscreen_pts = [
-        (TOUCHSCREEN_M, MAX_SVG_HEIGHT - TOUCHSCREEN_M - TOUCHSCREEN_H),
-        (TOUCHSCREEN_M + TOUCHSCREEN_W, MAX_SVG_HEIGHT - TOUCHSCREEN_M - TOUCHSCREEN_H),
-        (TOUCHSCREEN_M + TOUCHSCREEN_W, MAX_SVG_HEIGHT - TOUCHSCREEN_M),
-        (TOUCHSCREEN_M, MAX_SVG_HEIGHT - TOUCHSCREEN_M)
+        (TOUCHSCREEN_MX, MAX_SVG_HEIGHT - TOUCHSCREEN_MY - TOUCHSCREEN_H),
+        (TOUCHSCREEN_MX + TOUCHSCREEN_W, MAX_SVG_HEIGHT - TOUCHSCREEN_MY - TOUCHSCREEN_H),
+        (TOUCHSCREEN_MX + TOUCHSCREEN_W, MAX_SVG_HEIGHT - TOUCHSCREEN_MY),
+        (TOUCHSCREEN_MX, MAX_SVG_HEIGHT - TOUCHSCREEN_MY)
     ]
     touchscreen_pts.append(touchscreen_pts[0])
-    laser_cut_layer.path(touchscreen_pts, **LC_PARAMS)
+    layer.path(touchscreen_pts, **kwargs)
 
 LED_7SEG_W = 76
 LED_7SEG_H = 19
-LED_7SEG_M = 5
+LED_7SEG_MX = 5
+LED_7SEG_MY = 3
 LED_TOUCHSCREEN_M = 10
 N_LED_7SEG = 4
-
-def draw_7segment_leds(laser_cut_layer: MapSvgLayer):
-    start_x = TOUCHSCREEN_M + TOUCHSCREEN_W + LED_TOUCHSCREEN_M
-    start_y = MAX_SVG_HEIGHT - TOUCHSCREEN_M - 2 * LED_7SEG_H - LED_7SEG_M
-    for x in [start_x, start_x + LED_7SEG_W + LED_7SEG_M]:
-        for y in [start_y, start_y + LED_7SEG_H + LED_7SEG_M]:
-            laser_cut_layer.path([
+LED_7SEG_LABEL_H = 3.5
+LED_7SEG_LABEL_W = 20
+def draw_7segment_leds(layer: MapSvgLayer, **kwargs):
+    start_x = TOUCHSCREEN_MX + TOUCHSCREEN_W + LED_TOUCHSCREEN_M
+    start_y = MAX_SVG_HEIGHT - TOUCHSCREEN_MY - 2 * LED_7SEG_H - 5*LED_7SEG_MY - 2*LED_7SEG_LABEL_H
+    for x in [start_x, start_x + LED_7SEG_W + LED_7SEG_MX]:
+        for y in [start_y, start_y + LED_7SEG_H + 4*LED_7SEG_MY + LED_7SEG_LABEL_H]:
+            layer.path([
                 (x,y), (x+LED_7SEG_W,y), (x+LED_7SEG_W, y+LED_7SEG_H), 
-                (x, y+LED_7SEG_H), (x,y)], **LC_PARAMS)
+                (x, y+LED_7SEG_H), (x,y)], **kwargs)
+
+def draw_player_labels(label_layer: MapSvgLayer):
+    start_x = TOUCHSCREEN_MX + TOUCHSCREEN_W + LED_TOUCHSCREEN_M + LED_7SEG_W/2 - LED_7SEG_LABEL_W/2
+    start_y = MAX_SVG_HEIGHT - TOUCHSCREEN_MY - LED_7SEG_H - 4*LED_7SEG_MY - LED_7SEG_LABEL_H
+    i = 1
+    for y in [start_y, start_y + LED_7SEG_H + 4*LED_7SEG_MY + LED_7SEG_LABEL_H]:
+        for x in [start_x, start_x + LED_7SEG_W + LED_7SEG_MX]:
+            label_layer.text(f'PLAYER {i}', (x,y),
+                font_family='Corrigan ExtraBold', font_size='5px')
+            label_layer.circle((x - 5, y - LED_7SEG_LABEL_H/2), 2,
+                stroke='black', stroke_width=1.0, fill='white')
+            i += 1
 
 SPEAKER_HOLE_R = 1.25
 SPEAKER_HOLE_S = 4.5
 SPEAKER_H = 20
 SPEAKER_W = 30
+SPEAKER_OFFSET_R = 20
 SPEAKER_TOUCHSCREEN_M = 5
-def draw_speaker_holes(laser_cut_layer: MapSvgLayer):
+def draw_speaker_holes(layer: MapSvgLayer, outline: bool = False, **kwargs):
     row_height = SPEAKER_HOLE_S * sin(pi/3)
     n = floor((SPEAKER_W - 2 * SPEAKER_HOLE_R)/SPEAKER_HOLE_S)
     n = 2 * floor((n - 1) / 2) + 1 # Bump to next odd
-    x = TOUCHSCREEN_M + TOUCHSCREEN_W / 2 - ((n - 1) * SPEAKER_HOLE_S) / 2
-    y = (MAX_SVG_HEIGHT - TOUCHSCREEN_M - TOUCHSCREEN_H 
+    x = TOUCHSCREEN_MY + TOUCHSCREEN_W / 2 - ((n - 1) * SPEAKER_HOLE_S) / 2 + SPEAKER_OFFSET_R
+    y = (MAX_SVG_HEIGHT - TOUCHSCREEN_MY - TOUCHSCREEN_H 
         - SPEAKER_TOUCHSCREEN_M - SPEAKER_H/2)
 
-    laser_cut_layer.custom_path(
-        d=f'M {TOUCHSCREEN_M + TOUCHSCREEN_W / 2-SPEAKER_W/2+SPEAKER_H/2} {y-SPEAKER_H/2} ' +
-          f'a {SPEAKER_H/2} {SPEAKER_H/2} 0 0 0 0 {SPEAKER_H} ' +
-          f'l {SPEAKER_W-SPEAKER_H} 0 ' +
-          f'a {SPEAKER_H/2} {SPEAKER_H/2} 0 0 0 0 {-SPEAKER_H} ' +
-          f'l {-SPEAKER_W+SPEAKER_H} 0 ', 
-        **LC_PARAMS)
+    if outline:
+        layer.custom_path(
+            d=f'M {TOUCHSCREEN_MY + TOUCHSCREEN_W / 2-SPEAKER_W/2+SPEAKER_H/2 + SPEAKER_OFFSET_R} {y-SPEAKER_H/2} ' +
+            f'a {SPEAKER_H/2} {SPEAKER_H/2} 0 0 0 0 {SPEAKER_H} ' +
+            f'l {SPEAKER_W-SPEAKER_H} 0 ' +
+            f'a {SPEAKER_H/2} {SPEAKER_H/2} 0 0 0 0 {-SPEAKER_H} ' +
+            f'l {-SPEAKER_W+SPEAKER_H} 0 ', 
+            **kwargs)
 
     for _ in range(n):
-        laser_cut_layer.circle((x,y), SPEAKER_HOLE_R, **LC_PARAMS)
+        layer.circle((x,y), SPEAKER_HOLE_R, **kwargs)
         x += SPEAKER_HOLE_S
     x -= 1.5 * SPEAKER_HOLE_S
     for _ in range(n - 1):
         for y_c in [y - row_height, y + row_height]:
-            laser_cut_layer.circle((x,y_c), SPEAKER_HOLE_R, **LC_PARAMS)
+            layer.circle((x,y_c), SPEAKER_HOLE_R, **kwargs)
         x -= SPEAKER_HOLE_S
 
 def draw_city_label(m: Map, label_layer: MapSvgLayer, text: str, x: float, y: float):
@@ -280,8 +315,8 @@ def draw_rr_at_point(m: Map, p: MapPoint, rr_patterns, triangles,
             else:
                 rr_layers[rr].line(p1, p2, stroke='red', stroke_width=1.0)
 
-OC_R = 20      # Outer corner radius
-OC_HOLE_M = 15 # Outer corner hole margin (center to edge)
+OC_R = 10      # Outer corner radius
+OC_HOLE_M = 13 # Outer corner hole margin (center to edge)
 OC_HOLE_D = 4  # Outer corner hole diameter
 def draw_outline(laser_cut_layer: MapSvgLayer):
     arc = f'a {OC_R} {OC_R} 0 0 1'
@@ -295,12 +330,28 @@ def draw_outline(laser_cut_layer: MapSvgLayer):
           f'L {OC_R} {MAX_SVG_HEIGHT} ' +
           f'{arc} {-OC_R} {-OC_R} ' +
           f'L 0 {OC_R}', **LC_PARAMS)
+
+def draw_oc_holes(layer: MapSvgLayer, **kwargs):
     def oc_hole(p: Coordinate):
-        laser_cut_layer.circle(p, OC_HOLE_D/2, **LC_PARAMS)
+        layer.circle(p, OC_HOLE_D/2, **kwargs)
     oc_hole((OC_HOLE_M,OC_HOLE_M))
     oc_hole((MAX_SVG_WIDTH - OC_HOLE_M, OC_HOLE_M))
     oc_hole((MAX_SVG_WIDTH - OC_HOLE_M, MAX_SVG_HEIGHT - OC_HOLE_M))
     oc_hole((OC_HOLE_M, MAX_SVG_HEIGHT - OC_HOLE_M))
+
+def blackout_outline_corners(blackout_layer: MapSvgLayer, **kwargs):
+    blackout_layer.custom_path(
+        d=f'M 0 0 l {OC_R} 0 a {OC_R} {OC_R} 0 0 0 {-OC_R} {OC_R} l 0 {-OC_R}',
+        **kwargs)
+    blackout_layer.custom_path(
+        d=f'M {MAX_SVG_WIDTH} 0 l 0 {OC_R} a {OC_R} {OC_R} 0 0 0 {-OC_R} {-OC_R} l {OC_R} 0',
+        **kwargs)
+    blackout_layer.custom_path(
+        d=f'M {MAX_SVG_WIDTH} {MAX_SVG_HEIGHT} l 0 {-OC_R} a {OC_R} {OC_R} 0 0 1 {-OC_R} {OC_R} l {OC_R} 0',
+        **kwargs)
+    blackout_layer.custom_path(
+        d=f'M 0 {MAX_SVG_HEIGHT} l {OC_R} 0 a {OC_R} {OC_R} 0 0 1 {-OC_R} {-OC_R} l 0 {OC_R}',
+        **kwargs)
 
 def draw_led_holes(m: Map, laser_cut_layer: MapSvgLayer):
     for p in m.points:

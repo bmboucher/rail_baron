@@ -32,18 +32,21 @@ def extract_kml(data_path: Path, root_tag: str = 'Document') -> ET.Element:
     else:
         raise RuntimeError(f'{root_tag} node not found in {data_path}')
 
+def simplify_coords(raw_coords: List[Coordinate]) -> List[Coordinate]:
+    coords = [raw_coords[0]]
+    for c in raw_coords[1:-1]:
+        if distance(c, coords[-1]) > 0.05:
+            coords.append(c)
+    coords.append(raw_coords[-1])
+    return coords    
+
 def parse_kml_coords(coord_text: str) -> List[Coordinate]:
     def parse_coords(s: str) -> Coordinate:
         p = s.split(',')
         return float(p[1]), float(p[0]) # We use lat,lon convention
     raw_coords = list(map(parse_coords, 
         (c for c in coord_text.split(' ') if ',' in c)))
-    coords = [raw_coords[0]]
-    for c in raw_coords[1:-1]:
-        if distance(c, coords[-1]) > 0.05:
-            coords.append(c)
-    coords.append(raw_coords[-1])
-    return coords
+    return simplify_coords(raw_coords)
 
 BorderData = Dict[str, List[List[Coordinate]]]
 def get_border_data(data_folder) -> BorderData:
