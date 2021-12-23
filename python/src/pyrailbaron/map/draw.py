@@ -52,9 +52,11 @@ def main(root_dir):
     geo_transforms = [transform_lcc, m.map_transform, transform_dxf, 
                       map_final_adj]
 
-    # Define layer to send to laser cutter
+    # Solid blue background before all other layers
     draw_background(svg)
-    draw_laser_cut_layer(m, svg)
+
+    # Define aluminum/acrylic layers to send to laser cutter
+    alum_layer, acr_layer = make_laser_cut_layers(svg)
 
     # Read state borders geo data
     canada = get_canada_data(root_dir / 'data')
@@ -81,7 +83,7 @@ def main(root_dir):
     draw_rr_triangles(m, rr_patterns, triangles, rr_layers)
 
     # Draw the circle/square at each map point on top of the RR layers
-    draw_map_points(m, svg)
+    draw_map_points(m, svg, alum_layer, acr_layer)
 
     label_layer = svg.layer('labels')
     for text, posType, x_s, y_s in svg_text:
@@ -99,9 +101,9 @@ def main(root_dir):
     label_layer.text("RAIL BARON", (510,365), 
         font_family='Corrigan ExtraBold', font_size='30px', 
         stroke=LOGO_COLOR, fill=LOGO_COLOR)
-    draw_player_labels(label_layer)
+    draw_player_labels(label_layer, alum_layer, acr_layer)
 
-    draw_legend(rr_patterns, svg)
+    draw_legend(rr_patterns, svg, alum_layer, acr_layer)
     draw_blackout_layer(svg)
 
 
@@ -114,7 +116,7 @@ LEGEND_LINE_W = 26
 LEGEND_TEXT_M = 3
 LEGEND_TEXT_H = 4
 LEGEND_LED_M = 5
-def draw_legend(rr_patterns, svg: MapSvg):
+def draw_legend(rr_patterns, svg: MapSvg, alum_layer: MapSvgLayer, acr_layer: MapSvgLayer):
     legend_layer = svg.layer('legend')
     legend_layer.transforms.clear()
     sorted_rr_names = list(sorted(sorted(rr_patterns.keys()), 
@@ -131,7 +133,8 @@ def draw_legend(rr_patterns, svg: MapSvg):
         legend_layer.draw_rr((x,y),(x+LEGEND_LINE_W,y),rr,rr_patterns[rr])
         legend_layer.text(rr_data['label'], (x+LEGEND_LINE_W+LEGEND_TEXT_M,y+LEGEND_TEXT_H/2), 
             fill=rr_color, font_family='Verdana', font_size='5px', font_weight='bold')
-        legend_layer.circle((x-LEGEND_LED_M,y),2,stroke='black',stroke_width=1.0,fill='white')
+        draw_led_circle(legend_layer, alum_layer, acr_layer,
+            (x - LEGEND_LED_M, y), 2, 1)
         y += LEGEND_SPACING
 
 def draw_background(svg):
@@ -140,15 +143,18 @@ def draw_background(svg):
         d=f'M 0 0 l {MAX_SVG_WIDTH} 0 l 0 {MAX_SVG_HEIGHT} l -{MAX_SVG_WIDTH} 0 l 0 -{MAX_SVG_HEIGHT}',
         fill="#a0b8c4", fill_opacity=0.7)
 
-def draw_laser_cut_layer(m, svg):
-    laser_cut_layer = svg.layer('laser_cut')
-    draw_led_holes(m, laser_cut_layer)
-    laser_cut_layer.transforms.clear()
-    draw_outline(laser_cut_layer)
-    draw_oc_holes(laser_cut_layer, **LC_PARAMS)
-    draw_touchscreen(laser_cut_layer, **LC_PARAMS)
-    draw_7segment_leds(laser_cut_layer, **LC_PARAMS)
-    draw_speaker_holes(laser_cut_layer, outline=True, **LC_PARAMS)
+def make_laser_cut_layers(svg):
+    alum_layer = svg.layer('aluminum_lc')
+    acr_layer = svg.layer('acrylic_lc')
+    for laser_cut_layer in [alum_layer, acr_layer]:
+        laser_cut_layer.transforms.clear()
+        draw_outline(laser_cut_layer, **LC_PARAMS)
+        draw_oc_holes(laser_cut_layer, **LC_PARAMS)
+        draw_touchscreen(laser_cut_layer, **LC_PARAMS)
+        draw_7segment_leds(laser_cut_layer, **LC_PARAMS)
+    draw_speaker_holes(alum_layer, **LC_PARAMS)
+    draw_speaker_outline(acr_layer, **LC_PARAMS)
+    return alum_layer, acr_layer
 
 def draw_blackout_layer(svg):
     blackout_layer = svg.layer('blackout')
@@ -159,6 +165,7 @@ def draw_blackout_layer(svg):
     draw_7segment_leds(blackout_layer, **BLACKOUT)
     draw_speaker_holes(blackout_layer, **BLACKOUT)
     blackout_outline_corners(blackout_layer, **BLACKOUT)
+    draw_outline(blackout_layer, stroke='black', stroke_width=0.5, fill='none')
 
 TOUCHSCREEN_W = 121.5
 TOUCHSCREEN_H = 76.5
@@ -191,7 +198,7 @@ def draw_7segment_leds(layer: MapSvgLayer, **kwargs):
                 (x,y), (x+LED_7SEG_W,y), (x+LED_7SEG_W, y+LED_7SEG_H), 
                 (x, y+LED_7SEG_H), (x,y)], **kwargs)
 
-def draw_player_labels(label_layer: MapSvgLayer):
+def draw_player_labels(label_layer: MapSvgLayer, alum_layer: MapSvgLayer, acr_layer: MapSvgLayer):
     start_x = TOUCHSCREEN_MX + TOUCHSCREEN_W + LED_TOUCHSCREEN_M + LED_7SEG_W/2 - LED_7SEG_LABEL_W/2
     start_y = MAX_SVG_HEIGHT - TOUCHSCREEN_MY - LED_7SEG_H - 4*LED_7SEG_MY - LED_7SEG_LABEL_H
     i = 1
@@ -199,8 +206,8 @@ def draw_player_labels(label_layer: MapSvgLayer):
         for x in [start_x, start_x + LED_7SEG_W + LED_7SEG_MX]:
             label_layer.text(f'PLAYER {i}', (x,y),
                 font_family='Corrigan ExtraBold', font_size='5px')
-            label_layer.circle((x - 5, y - LED_7SEG_LABEL_H/2), 2,
-                stroke='black', stroke_width=1.0, fill='white')
+            draw_led_circle(label_layer, alum_layer, acr_layer,
+                (x - 5, y - LED_7SEG_LABEL_H/2), 2, 1)
             i += 1
 
 SPEAKER_HOLE_R = 1.25
@@ -209,22 +216,14 @@ SPEAKER_H = 20
 SPEAKER_W = 30
 SPEAKER_OFFSET_R = 20
 SPEAKER_TOUCHSCREEN_M = 5
-def draw_speaker_holes(layer: MapSvgLayer, outline: bool = False, **kwargs):
+
+def draw_speaker_holes(layer: MapSvgLayer, **kwargs):
     row_height = SPEAKER_HOLE_S * sin(pi/3)
     n = floor((SPEAKER_W - 2 * SPEAKER_HOLE_R)/SPEAKER_HOLE_S)
     n = 2 * floor((n - 1) / 2) + 1 # Bump to next odd
     x = TOUCHSCREEN_MY + TOUCHSCREEN_W / 2 - ((n - 1) * SPEAKER_HOLE_S) / 2 + SPEAKER_OFFSET_R
     y = (MAX_SVG_HEIGHT - TOUCHSCREEN_MY - TOUCHSCREEN_H 
         - SPEAKER_TOUCHSCREEN_M - SPEAKER_H/2)
-
-    if outline:
-        layer.custom_path(
-            d=f'M {TOUCHSCREEN_MY + TOUCHSCREEN_W / 2-SPEAKER_W/2+SPEAKER_H/2 + SPEAKER_OFFSET_R} {y-SPEAKER_H/2} ' +
-            f'a {SPEAKER_H/2} {SPEAKER_H/2} 0 0 0 0 {SPEAKER_H} ' +
-            f'l {SPEAKER_W-SPEAKER_H} 0 ' +
-            f'a {SPEAKER_H/2} {SPEAKER_H/2} 0 0 0 0 {-SPEAKER_H} ' +
-            f'l {-SPEAKER_W+SPEAKER_H} 0 ', 
-            **kwargs)
 
     for _ in range(n):
         layer.circle((x,y), SPEAKER_HOLE_R, **kwargs)
@@ -234,6 +233,17 @@ def draw_speaker_holes(layer: MapSvgLayer, outline: bool = False, **kwargs):
         for y_c in [y - row_height, y + row_height]:
             layer.circle((x,y_c), SPEAKER_HOLE_R, **kwargs)
         x -= SPEAKER_HOLE_S
+
+def draw_speaker_outline(layer: MapSvgLayer, **kwargs):
+    y = (MAX_SVG_HEIGHT - TOUCHSCREEN_MY - TOUCHSCREEN_H 
+        - SPEAKER_TOUCHSCREEN_M - SPEAKER_H/2)
+    layer.custom_path(
+            d=f'M {TOUCHSCREEN_MY + TOUCHSCREEN_W / 2-SPEAKER_W/2+SPEAKER_H/2 + SPEAKER_OFFSET_R} {y-SPEAKER_H/2} ' +
+            f'a {SPEAKER_H/2} {SPEAKER_H/2} 0 0 0 0 {SPEAKER_H} ' +
+            f'l {SPEAKER_W-SPEAKER_H} 0 ' +
+            f'a {SPEAKER_H/2} {SPEAKER_H/2} 0 0 0 0 {-SPEAKER_H} ' +
+            f'l {-SPEAKER_W+SPEAKER_H} 0 ', 
+            **kwargs)
 
 def draw_city_label(m: Map, label_layer: MapSvgLayer, text: str, x: float, y: float):
     try:
@@ -264,16 +274,40 @@ def draw_rr_label(rr_data, label_layer, text, x, y):
     label_layer.text(text, (x,y), font_family='Verdana', stroke='none',
         font_weight='bold', fill=rr_color, font_size='4px')
 
+LED_R = 2.6
+def draw_led_circle(
+        top_layer: MapSvgLayer, 
+        mask_layer: MapSvgLayer,
+        bottom_layer: MapSvgLayer,
+        p: Coordinate, r: float, stroke_width: float):
+    top_layer.circle(p, r, stroke='black', fill='white', 
+        stroke_width=stroke_width, 
+        stroke_linecap='round', stroke_linejoin='round')
+    mask_layer.circle(p, r-stroke_width/2, **LC_PARAMS)
+    bottom_layer.circle(p, LED_R, **LC_PARAMS)
 
-def draw_map_points(m, svg):
+def draw_led_square(
+        top_layer: MapSvgLayer,
+        mask_layer: MapSvgLayer,
+        bottom_layer: MapSvgLayer,
+        p: Coordinate, s: float, stroke_width: float):
+    top_layer.square(p, s, 0, stroke='black', fill='white',
+        stroke_width=stroke_width, stroke_linecap='round', stroke_linejoin='round')
+    mask_layer.square(p, s-stroke_width, 0, **LC_PARAMS)
+    bottom_layer.circle(p, LED_R, **LC_PARAMS)
+
+def draw_map_points(
+        m: Map, svg: MapSvg, alum_layer: MapSvgLayer, acr_layer: MapSvgLayer):
+    alum_layer.transforms = svg.transforms.copy()
+    acr_layer.transforms = svg.transforms.copy()
     cities = svg.layer('cities')
     for p in m.points:
         if len(p.city_names) == 0:
-            cities.circle(p.final_svg_coords, 1.5, fill='white', stroke='black',
-                stroke_width=1, stroke_linecap='round', stroke_linejoin='round')
+            draw_led_circle(cities, alum_layer, acr_layer, p.final_svg_coords, 1.5, 1)
         else:
-            cities.square(p.final_svg_coords, 8, 0, fill='white', stroke='black',
-                stroke_width=1.5, stroke_linecap='round', stroke_linejoin='round')
+            draw_led_square(cities, alum_layer, acr_layer, p.final_svg_coords, 8, 1.5)
+    alum_layer.transforms.clear()
+    acr_layer.transforms.clear()
 
 def draw_rr_triangles(m, rr_patterns, triangles, rr_layers):
     for rr, p1, p2, p3 in triangles:
@@ -321,7 +355,7 @@ def draw_rr_at_point(m: Map, p: MapPoint, rr_patterns, triangles,
 OC_R = 10      # Outer corner radius
 OC_HOLE_M = 13 # Outer corner hole margin (center to edge)
 OC_HOLE_D = 4  # Outer corner hole diameter
-def draw_outline(laser_cut_layer: MapSvgLayer):
+def draw_outline(laser_cut_layer: MapSvgLayer, **kwargs):
     arc = f'a {OC_R} {OC_R} 0 0 1'
     laser_cut_layer.custom_path(
         d=f'M 0 {OC_R} ' + 
@@ -332,7 +366,7 @@ def draw_outline(laser_cut_layer: MapSvgLayer):
           f'{arc} {-OC_R} {OC_R} ' +
           f'L {OC_R} {MAX_SVG_HEIGHT} ' +
           f'{arc} {-OC_R} {-OC_R} ' +
-          f'L 0 {OC_R}', **LC_PARAMS)
+          f'L 0 {OC_R}', **kwargs)
 
 def draw_oc_holes(layer: MapSvgLayer, **kwargs):
     def oc_hole(p: Coordinate):
@@ -355,10 +389,6 @@ def blackout_outline_corners(blackout_layer: MapSvgLayer, **kwargs):
     blackout_layer.custom_path(
         d=f'M 0 {MAX_SVG_HEIGHT} l {OC_R} 0 a {OC_R} {OC_R} 0 0 1 {-OC_R} {-OC_R} l 0 {OC_R}',
         **kwargs)
-
-def draw_led_holes(m: Map, laser_cut_layer: MapSvgLayer):
-    for p in m.points:
-        laser_cut_layer.circle(p.final_svg_coords, LED_R, **LC_PARAMS)
 
 def draw_region(state_borders, region_data, region_layer):
     # Draw a closed region with styling
