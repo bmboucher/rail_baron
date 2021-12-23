@@ -4,6 +4,7 @@ import json
 import csv
 
 from pyrailbaron.map.canada import get_canada_data
+from pyrailbaron.map.mexico import get_mexico_data
 from pyrailbaron.map.states import get_border_data, get_region_border_points
 from pyrailbaron.map.svg import MAX_SVG_WIDTH, MapSvg, MapSvgLayer, transform_lcc, transform_dxf, MAX_SVG_HEIGHT
 from pyrailbaron.map.datamodel import Map, MapPoint, Coordinate, distance
@@ -57,10 +58,12 @@ def main(root_dir):
 
     # Read state borders geo data
     canada = get_canada_data(root_dir / 'data')
-    canada_layer = svg.layer('canada')
-    canada_layer.transforms = geo_transforms.copy()
-    for c in canada:
-        canada_layer.path(c, fill='white', stroke='none', stroke_width=0.5)
+    mexico = get_mexico_data(root_dir / 'data')
+    na_layer = svg.layer('na')
+    na_layer.transforms = geo_transforms.copy()
+    for nation in [canada, mexico]:
+        for area in nation:
+            na_layer.path(area, fill='white', stroke='none', stroke_width=0.5)
 
     # Draw regions (bottom layers)
     for region_name, region_data in regions.items():
