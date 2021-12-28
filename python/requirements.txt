@@ -3,3 +3,4 @@ svgwrite
 numpy
 sklearn
 dataclasses-json
+pygame >= 2.0.0
