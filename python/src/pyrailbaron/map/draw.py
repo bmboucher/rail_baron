@@ -10,14 +10,101 @@ from pyrailbaron.map.svg import MAX_SVG_WIDTH, MapSvg, MapSvgLayer, transform_lc
 from pyrailbaron.map.datamodel import Map, MapPoint, Coordinate, distance
 from typing import List, Tuple
 from math import atan2, pi, sin, cos, floor
+from random import choice
 
 # Parameters for laser cutter (LC) layer
 LC_COLOR = 'blue'
-LC_W = 0.5
+LC_W = 0.001
 LC_PARAMS = {'stroke': LC_COLOR, 'stroke_width': LC_W, 'fill': 'none'}
 LED_R = 2.6
 
 LOGO_COLOR = "#2d6a97"
+BACKGROUND_COLOR = "#a0b8c4"
+
+def test_piece(root_dir):
+    with (root_dir / 'data/rr_patterns.json').open('r') as rr_patterns_file:
+        rr_patterns = json.load(rr_patterns_file)
+    
+    TEST_W = 100
+    TEST_H = 100
+    TEST_N = 4
+    TEST_M = 12
+
+    svg = MapSvg(Path(root_dir)/'output/test_piece.svg',
+        size=(f'{TEST_W}mm',f'{TEST_H}mm'), viewBox=f'0 0 {TEST_W} {TEST_H}')
+
+    draw_background(svg, TEST_W, TEST_H)
+    alum_layer = svg.layer('aluminum_lc')
+    acr_layer = svg.layer('acrylic_lc')
+    for lc_layer in [alum_layer, acr_layer]:
+        draw_outline(lc_layer, TEST_W, TEST_H, **LC_PARAMS)
+        draw_oc_holes(lc_layer, TEST_W, TEST_H, **LC_PARAMS)
+
+    rr_layer = svg.layer('rr')
+    top_layer = svg.layer('top')
+    chosen_rrs = set()
+    def repeat(pattern, y):
+        x = TEST_W / 2 - ((TEST_N - 1) * TEST_M) / 2
+        rr = choice(list(rr_patterns.keys()))
+        while rr in chosen_rrs:
+            rr = choice(list(rr_patterns.keys()))
+        chosen_rrs.add(rr)
+        for i in range(TEST_N):
+            pattern(x,y)
+            if i > 0:
+                rr_layer.draw_rr((x - TEST_M, y), (x,y), rr, rr_patterns[rr])
+            x += TEST_M
+    label_x = TEST_W / 2 + ((TEST_N - 1) * TEST_M) / 2 + 5
+    label_y_shift = 1.5
+
+    def basic_row(r):
+        def pt(x,y):
+            draw_led_circle(top_layer, alum_layer, acr_layer, (x,y), r, 1)
+        return pt
+    def city_row():
+        alt: bool = False
+        def pt(x,y):
+            nonlocal alt
+            if alt:
+                draw_led_circle(top_layer, alum_layer, acr_layer, (x,y), 1.5, 1)
+            else:
+                draw_led_square(top_layer, alum_layer, acr_layer, (x,y), 8, 1.5)
+            alt = not alt
+        return pt
+    test_r = 1.0
+    test_y = 20
+    while test_r <= 2.0:
+        repeat(basic_row(test_r), test_y)
+        top_layer.text(
+            f'{test_r}mm', (label_x, test_y + label_y_shift),
+            font_size='5px')
+        test_r += 0.25
+        test_y += 8
+    test_y += 2
+    # Test alternating square-circle-square
+    repeat(city_row(), test_y)
+    test_y += 15
+    # Test rows at minimum separation
+    repeat(basic_row(1.5), test_y)
+    test_y += 6
+    repeat(basic_row(1.5), test_y)
+
+    test_led_x = TEST_W - label_x - 3
+    test_y = 15
+    test_r = 2.45
+    while test_r <= 2.7:
+        acr_layer.circle((test_led_x, test_y), test_r, **LC_PARAMS)
+        test_r += 0.025
+        test_y += 2 * test_r + 2
+
+    blackout_layer = svg.layer('blackout')
+    blackout_outline_corners(blackout_layer, TEST_W, TEST_H)
+    draw_outline(blackout_layer, TEST_W, TEST_H,
+        stroke='black', stroke_width=0.5, fill='none')
+    draw_oc_holes(blackout_layer, TEST_W, TEST_H, 
+        stroke='none', stroke_width=0, fill='black')
+
+    svg.save()    
 
 def main(root_dir):
     # Read raw map data
@@ -106,7 +193,6 @@ def main(root_dir):
     draw_legend(rr_patterns, svg, alum_layer, acr_layer)
     draw_blackout_layer(svg)
 
-
     svg.save()
 
 LEGEND_START_X = 35
@@ -137,11 +223,11 @@ def draw_legend(rr_patterns, svg: MapSvg, alum_layer: MapSvgLayer, acr_layer: Ma
             (x - LEGEND_LED_M, y), 2, 1)
         y += LEGEND_SPACING
 
-def draw_background(svg):
+def draw_background(svg, w: float = MAX_SVG_WIDTH, h: float = MAX_SVG_HEIGHT):
     background = svg.layer('background')
     background.custom_path(
-        d=f'M 0 0 l {MAX_SVG_WIDTH} 0 l 0 {MAX_SVG_HEIGHT} l -{MAX_SVG_WIDTH} 0 l 0 -{MAX_SVG_HEIGHT}',
-        fill="#a0b8c4", fill_opacity=0.7)
+        d=f'M 0 0 l {w} 0 l 0 {h} l {-w} 0 l 0 {-h}',
+        fill=BACKGROUND_COLOR, fill_opacity=0.7)
 
 def make_laser_cut_layers(svg):
     alum_layer = svg.layer('aluminum_lc')
@@ -355,39 +441,41 @@ def draw_rr_at_point(m: Map, p: MapPoint, rr_patterns, triangles,
 OC_R = 10      # Outer corner radius
 OC_HOLE_M = 13 # Outer corner hole margin (center to edge)
 OC_HOLE_D = 4  # Outer corner hole diameter
-def draw_outline(laser_cut_layer: MapSvgLayer, **kwargs):
+def draw_outline(laser_cut_layer: MapSvgLayer, w: float = MAX_SVG_WIDTH, h: float = MAX_SVG_HEIGHT, **kwargs):
     arc = f'a {OC_R} {OC_R} 0 0 1'
     laser_cut_layer.custom_path(
         d=f'M 0 {OC_R} ' + 
           f'{arc} {OC_R} {-OC_R} ' +
-          f'L {MAX_SVG_WIDTH-OC_R} 0 ' +
+          f'L {w-OC_R} 0 ' +
           f'{arc} {OC_R} {OC_R} ' +
-          f'L {MAX_SVG_WIDTH} {MAX_SVG_HEIGHT-OC_R} ' +
+          f'L {w} {h-OC_R} ' +
           f'{arc} {-OC_R} {OC_R} ' +
-          f'L {OC_R} {MAX_SVG_HEIGHT} ' +
+          f'L {OC_R} {h} ' +
           f'{arc} {-OC_R} {-OC_R} ' +
           f'L 0 {OC_R}', **kwargs)
 
-def draw_oc_holes(layer: MapSvgLayer, **kwargs):
+def draw_oc_holes(layer: MapSvgLayer, 
+        w: float = MAX_SVG_WIDTH, h: float = MAX_SVG_HEIGHT, **kwargs):
     def oc_hole(p: Coordinate):
         layer.circle(p, OC_HOLE_D/2, **kwargs)
     oc_hole((OC_HOLE_M,OC_HOLE_M))
-    oc_hole((MAX_SVG_WIDTH - OC_HOLE_M, OC_HOLE_M))
-    oc_hole((MAX_SVG_WIDTH - OC_HOLE_M, MAX_SVG_HEIGHT - OC_HOLE_M))
-    oc_hole((OC_HOLE_M, MAX_SVG_HEIGHT - OC_HOLE_M))
+    oc_hole((w - OC_HOLE_M, OC_HOLE_M))
+    oc_hole((w - OC_HOLE_M, h - OC_HOLE_M))
+    oc_hole((OC_HOLE_M, h - OC_HOLE_M))
 
-def blackout_outline_corners(blackout_layer: MapSvgLayer, **kwargs):
+def blackout_outline_corners(blackout_layer: MapSvgLayer, 
+    w: float = MAX_SVG_WIDTH, h: float = MAX_SVG_HEIGHT, **kwargs):
     blackout_layer.custom_path(
         d=f'M 0 0 l {OC_R} 0 a {OC_R} {OC_R} 0 0 0 {-OC_R} {OC_R} l 0 {-OC_R}',
         **kwargs)
     blackout_layer.custom_path(
-        d=f'M {MAX_SVG_WIDTH} 0 l 0 {OC_R} a {OC_R} {OC_R} 0 0 0 {-OC_R} {-OC_R} l {OC_R} 0',
+        d=f'M {w} 0 l 0 {OC_R} a {OC_R} {OC_R} 0 0 0 {-OC_R} {-OC_R} l {OC_R} 0',
         **kwargs)
     blackout_layer.custom_path(
-        d=f'M {MAX_SVG_WIDTH} {MAX_SVG_HEIGHT} l 0 {-OC_R} a {OC_R} {OC_R} 0 0 1 {-OC_R} {OC_R} l {OC_R} 0',
+        d=f'M {w} {h} l 0 {-OC_R} a {OC_R} {OC_R} 0 0 1 {-OC_R} {OC_R} l {OC_R} 0',
         **kwargs)
     blackout_layer.custom_path(
-        d=f'M 0 {MAX_SVG_HEIGHT} l {OC_R} 0 a {OC_R} {OC_R} 0 0 1 {-OC_R} {-OC_R} l 0 {OC_R}',
+        d=f'M 0 {h} l {OC_R} 0 a {OC_R} {OC_R} 0 0 1 {-OC_R} {-OC_R} l 0 {OC_R}',
         **kwargs)
 
 def draw_region(state_borders, region_data, region_layer):
@@ -424,4 +512,5 @@ def get_parallels(p1: Coordinate, p2: Coordinate, n: int, spacing: float) \
 
 if __name__ == '__main__':
     ROOT_DIR = (Path(__file__) / '../../../../..').resolve()
-    main(ROOT_DIR)
+    #main(ROOT_DIR)
+    test_piece(ROOT_DIR)
