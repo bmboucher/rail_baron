@@ -7,7 +7,7 @@ from pyrailbaron.map.canada import get_canada_data
 from pyrailbaron.map.mexico import get_mexico_data
 from pyrailbaron.map.states import get_border_data, get_region_border_points
 from pyrailbaron.map.svg import MAX_SVG_WIDTH, MapSvg, MapSvgLayer, transform_lcc, transform_dxf, MAX_SVG_HEIGHT
-from pyrailbaron.map.datamodel import Map, MapPoint, Coordinate, distance
+from pyrailbaron.map.datamodel import read_map, Map, MapPoint, Coordinate, distance
 from typing import List, Tuple
 from math import atan2, pi, sin, cos, floor
 from random import choice
@@ -109,8 +109,7 @@ def test_piece(root_dir):
 def main(root_dir):
     # Read raw map data
     map_json = Path(root_dir) / 'output/map.json'
-    with map_json.open('rt') as map_file:
-        m: Map = Map.from_json(map_file.read())
+    m: Map = read_map(map_json)
     # Read state borders geo data
     state_borders = get_border_data(Path(root_dir) / 'data')
     # Read region definitions

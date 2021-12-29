@@ -1,8 +1,10 @@
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
 from typing import List, Tuple, Optional
 from enum import Enum
+
+from pyrailbaron.map.datamodel import read_map, Map
 
 class Engine(Enum):
     Basic = 0
@@ -23,6 +25,8 @@ class PlayerState:
     bank: int
     engine: Engine
     rr: Optional[str] = None
+    established_rate: Optional[float] = None
+    rr_owned: List[str] = field(default_factory=list)
     history: List[int] = field(default_factory=list) 
         # List of locations previously visited this trip
     declared: bool = field(default=False)
@@ -79,4 +83,19 @@ class PlayerState:
 @dataclass_json
 @dataclass
 class GameState:
+    map: Map = field(default_factory=read_map)
     players: List[PlayerState] = field(default_factory=list)
+
+    def get_owner(self, rr: str) -> int:
+        for i, ps in enumerate(self.players):
+            if rr in ps.rr_owned:
+                return i
+        return -1
+
+    @property
+    def doubleFees(self) -> bool:
+        for rr in self.map.railroads:
+            if self.get_owner(rr) == -1:
+                return False
+        # Only double fees if all RRs are owned (i.e. none are owned by bank)
+        return True

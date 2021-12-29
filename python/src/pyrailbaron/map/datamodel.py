@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from typing import Tuple, List, Set, Optional, Dict
 from math import sqrt
+from pathlib import Path
 
 Coordinate = Tuple[float, float]
 
@@ -40,13 +41,28 @@ class MapPoint:
 
 @dataclass_json
 @dataclass
+class Railroad:
+    id: str
+    shortName: str
+    longName: str
+    cost: int
+
+@dataclass_json
+@dataclass
 class Map:
     points: List[MapPoint] = field(default_factory=list)
     map_transform_A: List[List[float]] = field(default_factory=list)
     map_transform_b: List[float] = field(default_factory=list)
+    railroads: Dict[str, Railroad] = field(default_factory=dict)
 
     def map_transform(self, c: Coordinate) -> Coordinate:
         x, y = c
         A, b = self.map_transform_A, self.map_transform_b
         return A[0][0] * x + A[0][1] * y + b[0], \
                A[1][0] * x + A[1][1] * y + b[1]
+
+def read_map(json_path: Path = None) -> Map:
+    if not json_path:
+        json_path = (Path(__file__) / '../../../../../data/map.json').resolve()
+    with json_path.open('r') as json_file:
+        return Map.from_json(json_file.read())
