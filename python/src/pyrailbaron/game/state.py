@@ -5,7 +5,7 @@ from typing import List, Dict, Tuple, Optional
 from enum import Enum
 
 from pyrailbaron.map.datamodel import read_map, Map
-from pyrailbaron.game.charts import read_route_payoffs
+from pyrailbaron.game.charts import read_route_payoffs, read_roll_tables
 
 class Engine(Enum):
     Basic = 0
@@ -108,13 +108,16 @@ class PlayerState:
 class GameState:
     map: Map = field(default_factory=read_map)
     route_payoffs: Dict[str, Dict[str, int]] = field(default_factory=read_route_payoffs)
+    roll_tables: Dict[str, List[Tuple[str, str]]] = field(default_factory=read_roll_tables)
     players: List[PlayerState] = field(default_factory=list)
 
     def set_player_home_city(self, player_i: int, hc: str):
-        self.players[player_i]._set_home_city(hc, self.map.lookup_city(hc))
+        hc, hc_i = self.map.lookup_city(hc)
+        self.players[player_i]._set_home_city(hc, hc_i)
 
     def set_player_destination(self, player_i: int, dest: str):
-        self.players[player_i]._set_destination(dest, self.map.lookup_city(dest))
+        dest, dest_i = self.map.lookup_city(dest)
+        self.players[player_i]._set_destination(dest, dest_i)
 
     def get_owner(self, rr: str) -> int:
         for i, ps in enumerate(self.players):
@@ -129,3 +132,9 @@ class GameState:
                 return False
         # Only double fees if all RRs are owned (i.e. none are owned by bank)
         return True
+
+    def lookup_roll_table(self, table: str, d1: int, d2: int, d3: int) -> str:
+        for d in [d1, d2, d3]:
+            assert d >= 1 and d <= 6, "Die rolls must be 1-6"
+        odd, even = self.roll_tables[table][d1 + d2 - 2]
+        return even if d3 % 2 == 0 else odd

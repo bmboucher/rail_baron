@@ -61,8 +61,13 @@ class Map:
         return A[0][0] * x + A[0][1] * y + b[0], \
                A[1][0] * x + A[1][1] * y + b[1]
 
-    def lookup_city(self, city: str) -> int:
-        return next(pt.index for pt in self.points if city in pt.city_names)
+    def lookup_city(self, city: str) -> Tuple[str, int]:
+        def canon(s: str) -> str:
+            return s.upper().replace('.','').replace(' ','')
+        for pt in self.points:
+            for c in pt.city_names:
+                if canon(c) == canon(city):
+                    return c, pt.index
 
 def read_map(json_path: Path = None) -> Map:
     if not json_path:
