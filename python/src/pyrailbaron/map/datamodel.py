@@ -29,6 +29,7 @@ class MapPoint:
         # Indexes of connected MapPoints, grouped by railroad name
     final_svg_coords: Optional[Coordinate] = field(default=None)
         # Final coordinates in the .svg
+    region: Optional[str] = None
 
     def _connect_to(self, other: 'MapPoint', rr: str):
         if rr not in self.connections:
@@ -38,6 +39,11 @@ class MapPoint:
     def connect_to(self, other: 'MapPoint', rr: str):
         self._connect_to(other, rr)
         other._connect_to(self, rr)
+
+    @property
+    def pts_connected_to(self) -> List[int]:
+        return list(sorted(set(
+            pt_j for pts in self.connections.values() for pt_j in pts)))
 
 @dataclass_json
 @dataclass
@@ -68,9 +74,10 @@ class Map:
             for c in pt.city_names:
                 if canon(c) == canon(city):
                     return c, pt.index
+        raise StopIteration
 
-def read_map(json_path: Path = None) -> Map:
+def read_map(json_path: Path | None = None) -> Map:
     if not json_path:
         json_path = (Path(__file__) / '../../../../../data/map.json').resolve()
     with json_path.open('r') as json_file:
-        return Map.from_json(json_file.read())
+        return Map.from_json(json_file.read()) # type: ignore

@@ -19,12 +19,12 @@ class Interface(ABC):
 
     # Roll two die for distance
     @abstractmethod
-    def roll_for_distance(self, player_i: int) -> Tuple[int, int]:
+    def roll_for_distance(self, s: GameState, player_i: int) -> Tuple[int, int]:
         pass
 
     # Roll single bonus die for distance
     @abstractmethod
-    def bonus_roll(self, player_i: int) -> int:
+    def bonus_roll(self, s: GameState, player_i: int) -> int:
         pass
 
     # Select rail lines and points to move through given distance

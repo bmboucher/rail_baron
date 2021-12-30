@@ -1,10 +1,10 @@
 import csv
-from os import read
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 DATA_DIR = (Path(__file__) / '../../../../../data').resolve()
-def read_route_payoffs(csv_path: Path = None) -> Dict[str, Dict[str, int]]:
+def read_route_payoffs(csv_path: Path | str | None = None) \
+        -> Dict[str, Dict[str, int]]:
     csv_path = Path(csv_path) if csv_path else (DATA_DIR / 'payoffs.csv')
     routes: Dict[str, Dict[str, int]] = dict()
     with csv_path.open('rt') as csv_file:
@@ -19,7 +19,8 @@ def read_route_payoffs(csv_path: Path = None) -> Dict[str, Dict[str, int]]:
             routes[row_hdr] = dict(zip(keys, payoffs))
     return routes
 
-def read_roll_tables(table_dir: Path = None) -> Dict[str, List[Tuple[str, str]]]:
+def read_roll_tables(table_dir: Path | str | None = None) \
+        -> Dict[str, List[Tuple[str, str]]]:
     table_dir = Path(table_dir) if table_dir else (DATA_DIR / 'roll_tables')
     tables: Dict[str, List[Tuple[str, str]]] = dict()
     for table_path in table_dir.glob('*.csv'):

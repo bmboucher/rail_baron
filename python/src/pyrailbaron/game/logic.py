@@ -3,17 +3,8 @@ between the GameState data model and an abstracted UI layer represented by
 the Interface class"""
 from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.state import Engine, GameState, PlayerState, Waypoint
+from pyrailbaron.game.constants import *
 from typing import List
-
-# TODO: Move these to a config and allow them to be changed
-INITIAL_BANK = 20000
-MIN_CASH_TO_WIN = 200000
-BANK_USER_FEE = 1000
-OTHER_USER_FEE = 5000
-MIN_BID_INCR = 500
-ROVER_PLAY_FEE = 50000
-EXPRESS_FEE = 4000
-SUPERCHIEF_FEE = 40000
 
 # Basic game loop, will run to completion unless error
 def run_game(n_players: int, i: Interface):
@@ -34,7 +25,7 @@ def run_game(n_players: int, i: Interface):
         init_rr = ps.rr
 
         # Roll for distance and move
-        d1,d2 = i.roll_for_distance(player_i)
+        d1,d2 = i.roll_for_distance(s, player_i)
         waypoints = do_move(s, i, player_i, d1 + d2)
 
         # The first move could land in the home city for the win
@@ -43,7 +34,7 @@ def run_game(n_players: int, i: Interface):
 
         # Make a bonus roll and move if possible
         if ps.check_bonus_roll(d1, d2):
-            waypoints += do_move(s, i, player_i, i.bonus_roll(player_i))
+            waypoints += do_move(s, i, player_i, i.bonus_roll(s, player_i))
 
         # Pay the bank and/or other players for use of rails
         charge_user_fees(s, i, player_i, waypoints, init_rr)
@@ -101,8 +92,8 @@ def update_balances(s: GameState, i: Interface, bank_deltas: List[int],
     for ps in s.players:
         if ps.declared and ps.bank <= MIN_CASH_TO_WIN:
             ps.declared = False
-            i.announce_undeclared(s, player_i)
-            check_destination(s, i, player_i)
+            i.announce_undeclared(s, ps.index)
+            check_destination(s, i, ps.index)
 
 # During this step the user selects their moves for either the initial roll
 # or the bonus roll; we don't collect user fees until both moves are done
@@ -140,7 +131,7 @@ def raise_funds(s: GameState, i: Interface, player_i: int, min_amt: int):
     while amt_raised < min_amt and len(s.players[player_i].rr_owned) > 0:
         rr_to_sell = i.select_rr_to_sell(s, player_i)
         assert rr_to_sell in s.players[player_i].rr_owned, "Must own RR to sell it"
-        min_sell_amt = s.map.railroads[rr_to_sell].cost / 2
+        min_sell_amt = s.map.railroads[rr_to_sell].cost // 2
 
         sell_to_bank = False
         if i.ask_to_auction(s, player_i, rr_to_sell):
@@ -208,7 +199,8 @@ def auction(s: GameState, i: Interface, seller_i: int, rr_to_sell: str, min_sell
 
 # After all moves are completed on a player's turn, calculate the total charges
 # to the bank and/or other players for rails used
-def charge_user_fees(s: GameState, i: Interface, player_i: int, waypoints: List[Waypoint], init_rr: str = None):
+def charge_user_fees(s: GameState, i: Interface, player_i: int, 
+        waypoints: List[Waypoint], init_rr: str | None = None):
     ps = s.players[player_i]
 
     # Do a one-time check if all RRs are owned; if so, user fees double
@@ -261,6 +253,9 @@ def check_destination(s: GameState, i: Interface, player_i: int) -> None:
 
     # First, check if we've arrived at our destination on a "normal" trip
     if not ps.declared and ps.atDestination:
+        assert ps.startCity is not None, "Must know start city"
+        assert ps.destination is not None, "Must know destination"
+
         # Calculate route payoff and distribute to player
         payoff = s.route_payoffs[ps.startCity][ps.destination]
         i.announce_route_payoff(s, player_i, payoff)

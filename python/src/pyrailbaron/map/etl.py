@@ -1,7 +1,5 @@
-import enum
-from os import close
 from .datamodel import Coordinate, Map, MapPoint, distance
-from typing import Callable, List
+from typing import List
 from dataclasses import replace
 from pathlib import Path
 import urllib.request
@@ -28,27 +26,27 @@ def lookup_pt(p: Coordinate, pts: List[MapPoint], append: bool = False) -> int:
     else:
         raise RuntimeError(f'Could not find point {p}')
 
-def scrape_network_dxf(dxf_path) -> List[MapPoint]:
+def scrape_network_dxf(dxf_path: Path) -> List[MapPoint]:
     points: List[MapPoint] = []
-    network_doc = ezdxf.readfile(dxf_path)
+    network_doc = ezdxf.readfile(dxf_path) # type: ignore
     for e in network_doc.entities:
-        x1,y1,z1 = e.dxf.start
-        x2,y2,z2 = e.dxf.end
+        x1,y1,_ = e.dxf.start
+        x2,y2,_ = e.dxf.end
         lookup_pt((x1,y1), points, True)
         lookup_pt((x2,y2), points, True)
     print(f'Found {len(points)} unique points in {dxf_path}')
     return points
 
-def scrape_rr_dxfs(dxf_folder, points: List[MapPoint]):
+def scrape_rr_dxfs(dxf_folder: Path | str, points: List[MapPoint]):
     n_rr = 0
     for rr_dxf_path in Path(dxf_folder).glob('rr_*.dxf'):
         try:
             rr_name = re.sub(r'rr_(.*)\.dxf', r'\1', rr_dxf_path.name)
-            rr_doc = ezdxf.readfile(rr_dxf_path)
+            rr_doc = ezdxf.readfile(rr_dxf_path) # type: ignore
             n_conn = 0
             for e in rr_doc.entities:
-                x1,y1,z1 = e.dxf.start
-                x2,y2,z2 = e.dxf.end
+                x1,y1,_ = e.dxf.start
+                x2,y2,_ = e.dxf.end
                 p1 = lookup_pt((x1,y1), points)
                 p2 = lookup_pt((x2,y2), points)
                 points[p1].connect_to(points[p2], rr_name)
@@ -59,7 +57,7 @@ def scrape_rr_dxfs(dxf_folder, points: List[MapPoint]):
             print(f'ERROR processing {rr_dxf_path}: {ex}')
     print(f'Processed {n_rr} railroad files in {dxf_folder}')
 
-def read_cities(csv_path, points: List[MapPoint]):
+def read_cities(csv_path: Path | str, points: List[MapPoint]):
     with Path(csv_path).open() as city_csv:
         cities = [c for c in csv.reader(city_csv) if len(c) >= 3]
     for city in cities:
@@ -72,7 +70,7 @@ def read_cities(csv_path, points: List[MapPoint]):
         points[pt_index].city_names.append(city[0])
     print(f'Read {len(cities)} cities from {csv_path}')
 
-def get_geonames_data(data_folder) -> Path:
+def get_geonames_data(data_folder: Path | str) -> Path:
     dest_path = Path(data_folder) / 'US.txt'
     if not dest_path.exists():
         print('Downloading geonames location data...')
@@ -84,7 +82,7 @@ def get_geonames_data(data_folder) -> Path:
         Path(tmp).unlink()
     return dest_path
 
-def get_city_locations(data_folder, points: List[MapPoint]):
+def get_city_locations(data_folder: Path | str, points: List[MapPoint]):
     cities = [
         (i, p.geonames_lookup, p.state) 
             for (i,p) in enumerate(points)
@@ -103,7 +101,8 @@ def get_city_locations(data_folder, points: List[MapPoint]):
                         found_count += 1
     print(f'Found locations for {found_count} / {len(cities)} cities')
 
-def lookup_nearest(data_folder, point: MapPoint) -> MapPoint:
+def lookup_nearest(data_folder: Path | str, point: MapPoint) -> MapPoint:
+    assert point.geo_coords, "Must have geographic coords"
     tgt_lat, tgt_lon = point.geo_coords
     geonames_data = get_geonames_data(data_folder)
     min_lat, max_lat = tgt_lat - 5, tgt_lat + 5
@@ -142,14 +141,14 @@ def summarize(points: List[MapPoint]):
     print(f'\tlat: [{min(lat)}, {max(lat)}]')
     print(f'\tlon: [{min(lon)}, {max(lon)}]')
 
-def read_data(data_folder) -> List[MapPoint]:
+def read_data(data_folder: Path | str) -> List[MapPoint]:
     points = scrape_network_dxf(Path(data_folder)/'dxf/network.dxf')
     scrape_rr_dxfs(Path(data_folder)/'dxf', points)
     read_cities(Path(data_folder)/'city_labels.csv', points)
     get_city_locations(data_folder, points)
     return points
 
-def lookup_unnamed(data_folder, points: List[MapPoint]):
+def lookup_unnamed(data_folder: Path | str, points: List[MapPoint]):
     for i in range(len(points)):
         p = points[i]
         if len(p.city_names) == 0:
@@ -157,6 +156,7 @@ def lookup_unnamed(data_folder, points: List[MapPoint]):
 
 def add_final_svg_coords(m: Map):
     for i,p in enumerate(m.points):
+        assert p.geo_coords, "Must have geo coords"
         m.points[i] = replace(p, 
             final_svg_coords = transform_dxf(
                 m.map_transform(transform_lcc(p.geo_coords))))
@@ -167,9 +167,8 @@ def push_points_apart(m: Map):
     too_close = True
     while too_close:
         too_close = False
-        deltas = [None] * len(m.points)
+        deltas: List[np.ndarray] = [np.zeros(2) for _ in range(len(m.points))] # type: ignore
         for i,p in enumerate(m.points):
-            deltas[i] = np.zeros(2)
             for j in range(i): 
                 other_p = m.points[j]
                 is_connected = False
@@ -178,15 +177,19 @@ def push_points_apart(m: Map):
                         is_connected = True
                 min_distance = MIN_DISTANCE_CONNECTED if is_connected \
                     else MIN_DISTANCE_UNCONNECTED
+                assert p.final_svg_coords, "Must have SVG coords"
+                assert other_p.final_svg_coords, "Must have SVG coords"
                 d = distance(p.final_svg_coords, other_p.final_svg_coords)
                 if d < min_distance:
                     too_close = True
                     adj_distance = (min_distance - d) * 0.6
-                    diff = np.array(p.final_svg_coords) - np.array(other_p.final_svg_coords)
+                    diff: np.ndarray = (np.array(p.final_svg_coords) 
+                        - np.array(other_p.final_svg_coords)) # type: ignore
                     deltas[i] += (adj_distance / d) * diff
                     deltas[j] -= (adj_distance / d) * diff
                     print(f'Points {i} and {j} are too close ({d} < {min_distance})')
         for i,p in enumerate(m.points):
+            assert p.final_svg_coords, "Must have SVG coords"
             orig_x, orig_y = p.final_svg_coords
             if deltas[i][0] != 0 or deltas[i][1] != 0:
                 m.points[i] = replace(p, final_svg_coords=(
@@ -204,16 +207,16 @@ if __name__ == '__main__':
 
     json_path = (ROOT_DIR / 'output/map.json')
     with json_path.open('w') as map_json:
-        json.dump(map.to_dict(), map_json, indent=2)
+        json.dump(map.to_dict(), map_json, indent=2) # type: ignore
     print(f'Wrote map data to {json_path}')
 
     svg_path = (ROOT_DIR / 'output/map.svg')
     svg = MapSvg(svg_path)
 
-    states = svg.layer('states')
-    rails = svg.layer('railroads')
-    cities = svg.layer('cities')
-    non_cities = svg.layer('non_cities')
+    states = svg.map_layer('states')
+    rails = svg.map_layer('railroads')
+    cities = svg.map_layer('cities')
+    non_cities = svg.map_layer('non_cities')
 
     states.transforms.append(transform_lcc)     # Map lat, lon -> abstract LCC coords
     states.transforms.append(map.map_transform) # Map LCC coords -> original .dxf coords
@@ -225,6 +228,7 @@ if __name__ == '__main__':
             states.path(l, stroke='green', stroke_width=1, fill='none')
 
     for p in map.points:
+        assert p.final_svg_coords, "Must have SVG coords"
         if len(p.city_names) > 0:
             cities.circle(p.final_svg_coords, 2, 
                 stroke='blue', stroke_width=1)
@@ -236,7 +240,8 @@ if __name__ == '__main__':
             for p_id in p.connections[rr]:
                 if p_id > p.index and p_id not in conn_pt:
                     conn_pt.append(p_id)
-                    rails.line(p.final_svg_coords, map.points[p_id].final_svg_coords,
-                        stroke='red', stroke_width=1)
+                    rails.line(p.final_svg_coords, 
+                        map.points[p_id].final_svg_coords, # type: ignore
+                        stroke='red', stroke_width=1) 
 
     svg.save()

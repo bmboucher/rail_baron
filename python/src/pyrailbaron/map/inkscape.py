@@ -6,16 +6,19 @@
 # License: MIT License
 # Copyright (C) 2018  Antonio Ospite <ao2@ao2.it>
 
+# type: ignore
+
 import svgwrite
 from svgwrite.data.types import SVGAttribute
+from typing import Any
 
 class InkscapeDrawing(svgwrite.Drawing):
     """An svgwrite.Drawing subclass which supports Inkscape layers"""
     INKSCAPE_NAMESPACE = 'http://www.inkscape.org/namespaces/inkscape'
     SODIPODI_NAMESPACE = 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd'
 
-    def __init__(self, *args, **kwargs):
-        super(InkscapeDrawing, self).__init__(*args, **kwargs)
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
 
         inkscape_attributes = {
             'xmlns:inkscape': SVGAttribute('xmlns:inkscape',

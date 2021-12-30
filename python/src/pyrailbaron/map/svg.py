@@ -1,6 +1,9 @@
 from pyrailbaron.map.inkscape import InkscapeDrawing
 from svgwrite.container import Group
-from typing import Tuple, List, Callable
+from svgwrite.drawing import Defs
+from svgwrite.path import Path
+from svgwrite.container import Use
+from typing import List, Callable, Any, Dict
 from math import sin, cos, pi, log, tan, sqrt, atan, floor, atan2
 
 from pyrailbaron.map.datamodel import Coordinate, distance
@@ -8,38 +11,41 @@ from pyrailbaron.map.datamodel import Coordinate, distance
 MAX_SVG_WIDTH = 787
 MAX_SVG_HEIGHT = 381
 
+Transform = Callable[[Coordinate], Coordinate]
+
 class MapSvg(InkscapeDrawing):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         if 'size' not in kwargs:
             kwargs['size'] = (f'{MAX_SVG_WIDTH}mm', f'{MAX_SVG_HEIGHT}mm')
         if 'viewBox' not in kwargs:
             kwargs['viewBox'] = f'0 0 {MAX_SVG_WIDTH} {MAX_SVG_HEIGHT}'
         super().__init__(*args, **kwargs)
-        self.layers = []
-        self.transforms = []
-        self.patterns = dict()
+        self.layers: List[Group] = []
+        self.transforms: List[Transform] = []
+        self.patterns: Dict[str, Any] = dict()
 
-    def layer(self, label: str, **kwargs) -> 'MapSvgLayer':
-        g = super().layer(label=label, **kwargs)
+    def map_layer(self, label: str, **kwargs: Any) -> 'MapSvgLayer':
+        g: Group = super().layer(label=label, **kwargs) # type: ignore
         l = MapSvgLayer(self, g, self.transforms)
         self.layers.append(l.g)
         return l
 
-    def add_pattern(self, name: str, paths):
+    def add_pattern(self, name: str, paths: List[Any]):
         id = f'__{name}'
-        pattern_g = self.defs.add(self.g(id=id))
+        pattern_g: Defs = self.defs.add(self.g(id=id)) # type: ignore
         for path_data in paths:
-            p = self.path(**path_data)
+            p: Path = self.path(**path_data)
             pattern_g.add(p)
         self.patterns[name] = pattern_g
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any):
         for l in self.layers:
             self.add(l)
         super().save(*args, **kwargs)
 
 class MapSvgLayer:
-    def __init__(self, parent: MapSvg, g: Group, transforms: List[Callable[[Coordinate], Coordinate]] = None):
+    def __init__(self, parent: MapSvg, g: Group, 
+            transforms: List[Callable[[Coordinate], Coordinate]] | None = None):
         self.parent = parent
         self.g = g
         self.transforms = transforms.copy() if transforms else []
@@ -50,61 +56,62 @@ class MapSvgLayer:
             new_p = t(new_p)
         return new_p
 
-    def line(self, p1: Coordinate, p2: Coordinate, **kwargs):
+    def line(self, p1: Coordinate, p2: Coordinate, **kwargs: Any):
         self.g.add(self.parent.line(
             self.apply_transforms(p1),
             self.apply_transforms(p2), 
-            **kwargs))
+            **kwargs)) # type: ignore
 
-    def path(self, pts: List[Coordinate], **kwargs):
-        p = self.parent.path(d='M', **kwargs)
+    def path(self, pts: List[Coordinate], **kwargs: Any):
+        p: Path = self.parent.path(d='M', **kwargs)
         for pt in pts:
             p.push(self.apply_transforms(pt))
         self.g.add(p)
 
-    def custom_path(self, **kwargs):
-        p = self.parent.path(**kwargs)
+    def custom_path(self, **kwargs: Any):
+        p: Path = self.parent.path(**kwargs)
         self.g.add(p)
 
-    def square(self, c: Coordinate, s: float, angle_deg: float, **kwargs):
+    def square(self, c: Coordinate, s: float, angle_deg: float, **kwargs: Any):
         c_x,c_y = self.apply_transforms(c)
         a = (angle_deg + 45) * pi/180
         d = s / (2 * sqrt(2))
         pts = [(c_x + d * cos(a + (i*pi)/2), 
                 c_y + d * sin(a + (i*pi)/2)) for i in range(4)]
         pts.append(pts[0])
-        p = self.parent.path(d='M', **kwargs)
+        p: Path = self.parent.path(d='M', **kwargs)
         for pt in pts:
             p.push(pt)
         self.g.add(p)
 
-    def cross(self, p: Coordinate, l: float, angle_deg: float, **kwargs):
+    def cross(self, p: Coordinate, l: float, angle_deg: float, **kwargs: Any):
         p = self.apply_transforms(p)
         a = angle_deg * pi / 180
         for _ in range(2):
             self.g.add(self.parent.line(
                 (p[0] + l * cos(a), p[1] + l * sin(a)),
-                (p[0] - l * cos(a), p[1] - l * sin(a))))
+                (p[0] - l * cos(a), p[1] - l * sin(a)))) # type: ignore
             a += pi/2
 
-    def circle(self, c: Coordinate, r: float, **kwargs):
+    def circle(self, c: Coordinate, r: float, **kwargs: Any):
         c_x,c_y = self.apply_transforms(c)
-        p = self.parent.path(d=f'M {c_x - r} {c_y}', **kwargs)
+        p: Path = self.parent.path(d=f'M {c_x - r} {c_y}', **kwargs)
         p.push_arc((2 * r, 0), 0, r, True, '-', False)
         p.push_arc((-2 * r, 0), 0, r, True, '-', False)
         self.g.add(p)
 
-    def text(self, text: str, insert: Coordinate, **kwargs):
+    def text(self, text: str, insert: Coordinate, **kwargs: Any):
         p = self.apply_transforms(insert)
-        self.g.add(self.parent.text(text, insert=p, **kwargs))
+        self.g.add(self.parent.text(text, insert=p, **kwargs)) # type: ignore
 
-    def use(self, href, insert: Coordinate, rotation: float, **kwargs):
+    def use(self, href: Defs, insert: Coordinate, rotation: float, **kwargs: Any):
         insert = self.apply_transforms(insert)
-        u = self.parent.use(href, insert=insert, **kwargs)
+        u: Use = self.parent.use(href, insert=insert, **kwargs)
         u.rotate(rotation*180/pi, center=insert)
         self.g.add(u)
 
-    def draw_rr(self, p1: Coordinate, p2: Coordinate, rr: str, pattern_data):
+    def draw_rr(self, p1: Coordinate, p2: Coordinate, 
+            rr: str, pattern_data: Dict[str, Any]):
         if pattern_data['style'] == 'line':
             self.line(p1, p2, **pattern_data['args'])
         elif pattern_data['style'] == 'def':

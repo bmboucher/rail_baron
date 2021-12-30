@@ -20,9 +20,9 @@ LCC_F = (
     cos(STD_PARALLEL_1)
         * (tan(pi/4 + STD_PARALLEL_1/2)**LCC_N)    
         / LCC_N )
-def rho(lat):
+def rho(lat: float) -> float:
     return R_EARTH * LCC_F * ( tan(pi/4 + lat/2) ** (-LCC_N))
-def lat_of_rho(r):
+def lat_of_rho(r: float) -> float:
     return 2*atan((r / (R_EARTH * LCC_F))**(-1/LCC_N)) - pi/2
 RHO_AT_ORIGIN = rho(LATITUDE_OF_ORIGIN)
 
@@ -36,21 +36,21 @@ def invert_lcc(c: Coordinate) -> Coordinate:
 
 CANADA_URL = ('http://www12.statcan.gc.ca/census-recensement/2011/geo/bound-limit/files-fichiers/2016/lpr_000b16g_e.zip')
 MAX_LAT = 53
-def get_canada_data(data_folder) -> List[List[Coordinate]]:
+def get_canada_data(data_folder: Path | str) -> List[List[Coordinate]]:
     data_path = Path(data_folder) / 'canada.gml'
     download_zip(CANADA_URL, data_path, 'lpr_000b16g_e.gml')
     root = extract_kml(data_path, root_tag='FeatureCollection')
     borders: List[List[Coordinate]] = []
-    for border in root.findall('./featureMember//LinearRing'):
-        coord_text = border.find('posList').text
+    for border in root.findall('./featureMember//LinearRing/posList'):
+        coord_text = border.text or ''
         coord_text_values = list(map(float, coord_text.split(' ')))
-        xy_coords: List(Coordinate) = [
+        xy_coords: List[Coordinate] = [
             (coord_text_values[2*i], coord_text_values[2*i+1])
             for i in range(len(coord_text_values)//2)]
         t_coords = list(map(invert_lcc, xy_coords))
         coords = simplify_coords(t_coords)
-        if len(coords) > 20 and any(lat <= MAX_LAT for lat,lon in coords):
+        if len(coords) > 20 and any(lat <= MAX_LAT for lat, _ in coords):
             print(f'Adding CA border with {len(coords)} points')
-            cap_coords = [(min(lat, MAX_LAT), lon) for lat,lon in coords]
+            cap_coords = [(min(lat, MAX_LAT), lon) for lat, lon in coords]
             borders.append(cap_coords)
     return borders

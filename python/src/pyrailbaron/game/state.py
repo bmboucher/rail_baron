@@ -1,9 +1,12 @@
+# pyright: reportPrivateUsage=information
+
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
 from typing import List, Dict, Tuple, Optional
 from enum import Enum
 
+from pyrailbaron.game.constants import *
 from pyrailbaron.map.datamodel import read_map, Map
 from pyrailbaron.game.charts import read_route_payoffs, read_roll_tables
 
@@ -15,6 +18,7 @@ class Engine(Enum):
 MIN_DECLARE_CASH = 200000
 
 Waypoint = Tuple[str, int] # Railroad name, dot
+RailSegment = Tuple[str, int, int] # Railroad name, dot pair (low, hi)
 
 @dataclass_json
 @dataclass
@@ -138,3 +142,15 @@ class GameState:
             assert d >= 1 and d <= 6, "Die rolls must be 1-6"
         odd, even = self.roll_tables[table][d1 + d2 - 2]
         return even if d3 % 2 == 0 else odd
+
+    def get_player_purchase_opts(self, player_i: int) -> List[Tuple[str, int]]:
+        ps = self.players[player_i]
+        options: List[Tuple[str, int]] = []
+        if ps.engine == Engine.Basic and ps.bank >= EXPRESS_FEE:
+            options.append((Engine.Express.name, EXPRESS_FEE))
+        if ps.engine != Engine.Superchief and ps.bank >= SUPERCHIEF_FEE:
+            options.append((Engine.Superchief.name, SUPERCHIEF_FEE))
+        for rr, rr_data in self.map.railroads.items():
+            if self.get_owner(rr) == -1 and ps.bank >= rr_data.cost:
+                options.append((rr, rr_data.cost))
+        return options

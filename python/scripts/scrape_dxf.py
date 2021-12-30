@@ -1,4 +1,4 @@
-from typing import NamedTuple, List, Dict, Tuple
+from typing import NamedTuple, List, Dict, Any
 from pathlib import Path
 import re
 import ezdxf
@@ -41,7 +41,7 @@ class Point(NamedTuple):
     
 points: List[Point] = []
 TOLERANCE = 0.5
-def get_point(x,y,append=False) -> int:
+def get_point(x: float, y: float, append: bool = False) -> int:
     for i,p in enumerate(points):
         if (p.x-x)**2 + (p.y-y)**2 < TOLERANCE:
             return i
@@ -54,7 +54,7 @@ def get_point(x,y,append=False) -> int:
         raise RuntimeError(f'Point ({x},{y}) not found')
 
 network_path = ROOT_DIR / 'data/network.dxf'
-network_doc = ezdxf.readfile(network_path)
+network_doc = ezdxf.readfile(network_path) # type: ignore
 for e in network_doc.entities:
     x1,y1,z1 = e.dxf.start
     x2,y2,z2 = e.dxf.end
@@ -62,10 +62,10 @@ for e in network_doc.entities:
     p2 = get_point(x2,y2,append=True)
 print(f'Found {len(points)} points')
 
-rr_list = []
+rr_list: List[str] = []
 for rr_path in (ROOT_DIR/'data').glob('rr_*.dxf'):
     rr_name = re.sub(r'rr_(.*)\.dxf', r'\1', rr_path.name)
-    rr_doc = ezdxf.readfile(rr_path)
+    rr_doc = ezdxf.readfile(rr_path) # type: ignore
     for e in rr_doc.entities:
         x1,y1,z1 = e.dxf.start
         x2,y2,z2 = e.dxf.end
@@ -100,13 +100,13 @@ act_padding_x = X_SIZE - scale * (max_x - min_x) - MIN_PAD
 act_padding_y = Y_SIZE - scale * (max_y - min_y) - MIN_PAD
 print(f'Calculated scale {scale} (padding = {act_padding_x},{act_padding_y})')
 
-def transform(x,y):
+def transform(x: float, y: float):
     return (x - min_x) * scale + act_padding_x, \
            (max_y - y) * scale + act_padding_y
 
 dwg = InkscapeDrawing(svg_file, size=(X_SIZE*mm,Y_SIZE*mm), profile='full',
     viewBox=(f'0 0 {X_SIZE} {Y_SIZE}'))
-def circle(c_x, c_y, r, **kwargs):
+def circle(c_x: float, c_y: float, r: float, **kwargs: Any):
     p = dwg.path(d=f'M {c_x-r} {c_y}', **kwargs)
     p.push_arc((2*r, 0), 0, r, True, '-', False)
     p.push_arc((-2*r, 0), 0, r, True, '-', False)
