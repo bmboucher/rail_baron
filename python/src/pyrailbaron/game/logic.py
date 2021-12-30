@@ -1,125 +1,111 @@
-from abc import ABC, abstractmethod
-import enum
-from dataclasses_json.cfg import T
-from pyrailbaron.map.datamodel import read_map
+"""Defines the basic game logic of Rail Baron, serves as an intermediary layer
+between the GameState data model and an abstracted UI layer represented by
+the Interface class"""
+from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.state import Engine, GameState, PlayerState, Waypoint
-from typing import List, Tuple
+from typing import List
 
+# TODO: Move these to a config and allow them to be changed
 INITIAL_BANK = 20000
 MIN_CASH_TO_WIN = 200000
 BANK_USER_FEE = 1000
 OTHER_USER_FEE = 5000
 MIN_BID_INCR = 500
 ROVER_PLAY_FEE = 50000
+EXPRESS_FEE = 4000
+SUPERCHIEF_FEE = 40000
 
-class Interface:
-    @abstractmethod
-    def get_player_name(self, player_i: int) -> str:
-        pass
+# Basic game loop, will run to completion unless error
+def run_game(n_players: int, i: Interface):
+    # Setup the initial game state
+    s = init_game(i, n_players)
+    
+    # Player index 0,1,2...n,0,1,2,... etc
+    # Each loop is one player's turn, the loop only breaks when player_i wins
+    player_i = 0
+    while True:
+        ps = s.players[player_i]
 
-    # Roll for home city
-    @abstractmethod
-    def get_home_city(self, s: GameState, player_i: int) -> int:
-        pass
+        # We need to roll for destination on each player's first turn, otherwise
+        # this happens during do_move
+        check_destination(s, i, player_i)
 
-    # Roll for destination city
-    # (Use alt=True when rolling for alternate destination after declaring)
-    @abstractmethod
-    def get_destination(self, s: GameState, player_i: int, alt: bool = False) -> int:
-        pass
+        # Record initial RR for user fee calculation later
+        init_rr = ps.rr
 
-    # Roll two die for distance
-    @abstractmethod
-    def roll_for_distance(self, player_i: int) -> Tuple[int, int]:
-        pass
+        # Roll for distance and move
+        d1,d2 = i.roll_for_distance(player_i)
+        waypoints = do_move(s, i, player_i, d1 + d2)
 
-    # Roll single bonus die for distance
-    @abstractmethod
-    def bonus_roll(self, player_i: int) -> int:
-        pass
+        # The first move could land in the home city for the win
+        if check_for_winner(s, i, player_i):
+            break
 
-    # Select rail lines and points to move through given distance
-    @abstractmethod
-    def get_player_move(self, s: GameState, player_i: int, d: int) -> List[Tuple[str, int]]:
-        pass
+        # Make a bonus roll and move if possible
+        if ps.check_bonus_roll(d1, d2):
+            waypoints += do_move(s, i, player_i, i.bonus_roll(player_i))
 
-    # Display a change in bank balances (AFTER state s has been updated)
-    @abstractmethod
-    def update_bank_amts(self, s: GameState):
-        pass
+        # Pay the bank and/or other players for use of rails
+        charge_user_fees(s, i, player_i, waypoints, init_rr)
 
-    # Update the displayed owners of railroads (AFTER state s has been updated)
-    @abstractmethod
-    def update_owners(self, s: GameState):
-        pass
+        # player_i may have become undeclared after paying fees so we check now
+        if check_for_winner(s,i, player_i):
+            break
 
-    @abstractmethod
-    def display_shortfall(self, s: GameState, player_i: int, amt: int):
-        pass
+        # Move to the next player
+        player_i = (player_i + 1) % n_players
 
-    # Select a railroad to sell when raising funds
-    @abstractmethod
-    def select_rr_to_sell(self, s: GameState, player_i: int) -> str:
-        pass
+    i.show_winner(s, player_i)
 
-    # Ask if the player wants to sell the RR to the bank immediately for 1/2 cost
-    @abstractmethod
-    def ask_to_auction(self, s: GameState, player_i: int, rr_to_sell: str) -> bool:
-        pass
-
-    # Ask another player to bid on a RR up for auction (return 0 to pass)
-    @abstractmethod
-    def ask_for_bid(self, s: GameState, selling_player_i: int, bidding_player_i: int, rr_to_sell: str, min_bid: int) -> int:
-        pass
-
-    # Select engine/rail line to purchase
-    @abstractmethod
-    def get_purchase(self, s: GameState, player_i: int) -> str:
-        pass
-
-    # Ask a player whether they want to declare before setting alternate destination
-    @abstractmethod
-    def ask_to_declare(self, s: GameState, player_i: int) -> bool:
-        pass
-
-    # Announce a rover play (i.e. crossing the path of a declared player)
-    @abstractmethod
-    def announce_rover_play(self, s: GameState, decl_player_i: int, rover_player_i: int):
-        pass
-
-    # Display the final winner
-    @abstractmethod
-    def show_winner(self, s: GameState, winner_i: int):
-        pass
-
+# Initialize the game state for all players
 def init_game(i: Interface, n_players: int) -> GameState:
     s = GameState()
 
     # Ask each player their name and create initial states
     for player_i in range(n_players):
         p = PlayerState(
-            name=i.get_player_name(player_i),
-            homeCity=-1,
-            destination=-1,
-            bank=0,
-            engine=Engine.Basic)
+            index=player_i,
+            name=i.get_player_name(player_i))
         s.players.append(p)
 
     # Deposit initial 20k
-    do_transaction(s, i, [INITIAL_BANK] * n_players)
+    update_balances(s, i, [INITIAL_BANK] * n_players)
 
     # Roll for home city for each player
     for player_i in range(n_players):
-        s.players[player_i].set_home_city(i.get_home_city(s, player_i))
+        s.set_player_home_city(player_i, i.get_home_city(s, player_i))
 
     return s
 
-def do_transaction(s: GameState, i: Interface, bank_deltas: List[int]):
+# Any time we need to update balances we call this method
+def update_balances(s: GameState, i: Interface, bank_deltas: List[int],
+        allow_selling: bool = False):
+    # First check if any player will go negative, then sell/auction as needed
     for player_i, delta in enumerate(bank_deltas):
-        assert s.players[player_i].bank + delta >= 0, "Cannot set bank balance negative"
-        s.players[player_i].bank += delta
+        new_balance = s.players[player_i].bank + delta
+        if new_balance < 0:
+            assert allow_selling, "Can only sell where explicitly allowed"
+            raise_funds(s, i, player_i, -new_balance)
+
+    # Update bank balances and display
+    for player_i, delta in enumerate(bank_deltas):
+        # Note that we floor negative balances at zero; its theoretically
+        # possible for a player to sell all their RRs during raise_funds
+        # and still not have enough balance to pay all fees - in this case,
+        # the bank pays them (i.e. positive deltas are unaffected)
+        ps = s.players[player_i]
+        ps.bank = max(0, ps.bank + delta)
     i.update_bank_amts(s)
 
+    # If a declared player falls below 200k they immediately become undeclared
+    for ps in s.players:
+        if ps.declared and ps.bank <= MIN_CASH_TO_WIN:
+            ps.declared = False
+            i.announce_undeclared(s, player_i)
+            check_destination(s, i, player_i)
+
+# During this step the user selects their moves for either the initial roll
+# or the bonus roll; we don't collect user fees until both moves are done
 def do_move(s: GameState, i: Interface, player_i: int, d: int) -> List[Waypoint]:
     # Ask user for RRs and points to move through
     waypoints = i.get_player_move(s, player_i, d)
@@ -136,85 +122,106 @@ def do_move(s: GameState, i: Interface, player_i: int, d: int) -> List[Waypoint]
             bank_deltas = [0] * len(s.players)
             bank_deltas[player_j] = -ROVER_PLAY_FEE
             bank_deltas[player_i] = ROVER_PLAY_FEE
-            do_transaction(s, i, bank_deltas)
+            update_balances(s, i, bank_deltas)
 
             other_ps.declared = False
 
+    # Check if player_i has reached destination for payoff/purchasing
+    check_destination(s, i, player_i)
+
     return waypoints
 
+# Whenever a player needs to pay a higher fee than they have in the bank, they
+# must sell or auction RRs to raise the needed funds
 def raise_funds(s: GameState, i: Interface, player_i: int, min_amt: int):
     i.display_shortfall(s, player_i, min_amt)
     amt_raised = 0
 
     while amt_raised < min_amt and len(s.players[player_i].rr_owned) > 0:
         rr_to_sell = i.select_rr_to_sell(s, player_i)
-        min_sell_amt = s.map.railroads[rr_to_sell].cost / 2
         assert rr_to_sell in s.players[player_i].rr_owned, "Must own RR to sell it"
+        min_sell_amt = s.map.railroads[rr_to_sell].cost / 2
 
         sell_to_bank = False
-        bank_deltas = [0] * len(s.players)
         if i.ask_to_auction(s, player_i, rr_to_sell):
-            highest_bidder = -1
-            highest_bid = -1
-            bidder_i = player_i
-            def incr_bidder():
-                nonlocal bidder_i
-                bidder_i = (bidder_i + 1) % len(s.players)
-            incr_bidder()
-            while True:
-                if highest_bidder == bidder_i:
-                    # We've passed around the table without changing high bid
-                    bank_deltas[player_i] = highest_bid
-                    bank_deltas[highest_bidder] = -highest_bid
-                    do_transaction(s, i, bank_deltas)
-
-                    amt_raised += highest_bid
-                    s.players[player_i].rr_owned.remove(rr_to_sell)
-                    s.players[highest_bidder].rr_owned.append(rr_to_sell)
-                    i.update_owners(s)
-                    break
-
-                # Ask for a bid/pass (update if bid)
-                min_bid = (min_sell_amt if highest_bid < 0  
-                    else highest_bid + MIN_BID_INCR)
-                bid = i.ask_for_bid(s, player_i, bidder_i, rr_to_sell, min_bid)
-                assert bid == 0 or bid >= min_bid, "Must pass or bid at least min"
-                if bid >= min_bid:
-                    highest_bid = bid
-                    highest_bidder = bidder_i
-
-                incr_bidder()
-                if bidder_i == player_i:
-                    if highest_bid < 0:
-                        # We've passed around the table with no bids
-                        sell_to_bank = True
-                        break
-                    incr_bidder()
+            auction_price = auction(s, i, player_i, rr_to_sell, min_sell_amt)
+            if auction_price > 0:
+                amt_raised += auction_price
+            else:
+                sell_to_bank = True
         else:
             sell_to_bank = True
 
         if sell_to_bank:
+            i.announce_sale_to_bank(s, player_i, rr_to_sell, min_sell_amt)
+
+            bank_deltas = [0] * len(s.players)
             bank_deltas[player_i] = min_sell_amt
-            do_transaction(s, i, bank_deltas)
+            update_balances(s, i, bank_deltas)
 
             amt_raised += min_sell_amt
             s.players[player_i].rr_owned.remove(rr_to_sell)
             i.update_owners(s)
 
+# Auction a player's railroad and return the price (0 if no bids)
+def auction(s: GameState, i: Interface, seller_i: int, rr_to_sell: str, min_sell_amt: int) -> int:
+    highest_bidder = -1
+    highest_bid = -1
+    bidder_i = seller_i
+    def incr_bidder():
+        nonlocal bidder_i
+        bidder_i = (bidder_i + 1) % len(s.players)
+    incr_bidder()
+    while True:
+        if highest_bidder == bidder_i:
+            # We've passed around the table without changing high bid,
+            # so we close the sale
+            assert highest_bid >= min_sell_amt, "Cannot close bidding less than min"
+            i.announce_sale(s, 
+                        seller_i, highest_bidder, rr_to_sell, highest_bid)
+            bank_deltas = [0] * len(s.players)
+            bank_deltas[seller_i] = highest_bid
+            bank_deltas[highest_bidder] = -highest_bid
+            update_balances(s, i, bank_deltas)
+
+            s.players[seller_i].rr_owned.remove(rr_to_sell)
+            s.players[highest_bidder].rr_owned.append(rr_to_sell)
+            i.update_owners(s)
+            return highest_bid
+
+        # Ask for a bid/pass (update if bid)
+        min_bid = (min_sell_amt if highest_bid < 0  
+                    else highest_bid + MIN_BID_INCR)
+        bid = i.ask_for_bid(s, seller_i, bidder_i, rr_to_sell, min_bid)
+        assert bid == 0 or bid >= min_bid, "Must pass or bid at least min"
+        assert bid <= s.players[bidder_i].bank, "Can't bid more than bank"
+        if bid >= min_bid:
+            highest_bid = bid
+            highest_bidder = bidder_i
+
+        incr_bidder()
+        if bidder_i == seller_i:
+            if highest_bid < 0:
+                # We've passed around the table with no bids
+                return 0
+            incr_bidder()
+
+# After all moves are completed on a player's turn, calculate the total charges
+# to the bank and/or other players for rails used
 def charge_user_fees(s: GameState, i: Interface, player_i: int, waypoints: List[Waypoint], init_rr: str = None):
     ps = s.players[player_i]
 
-    # One-time calculation, looks at ownership of all RRs
-    doubleFeeFlag = s.doubleFees
-    _other_user_fee = OTHER_USER_FEE * (2 if doubleFeeFlag else 1)
+    # Do a one-time check if all RRs are owned; if so, user fees double
+    _other_user_fee = OTHER_USER_FEE * (2 if s.doubleFees else 1)
 
-    # charges[j] = True => we traveled on player j's lines
-    # For simplicity, charges[player_i] is the bank fee
-    charges = [False] * len(s.players)
-    
+    # Determine who we have to pay charges to
+    bank_charge = False
+    player_charges = [False] * len(s.players)    
     on_first_rr = init_rr is not None
     for rr, _ in waypoints:
         if rr != init_rr:
+            # As soon as we leave the RR we were on, the established rate no
+            # longer applies
             on_first_rr = False
         elif on_first_rr:
             if ps.established_rate == 0 or rr in ps.rr_owned:
@@ -222,7 +229,7 @@ def charge_user_fees(s: GameState, i: Interface, player_i: int, waypoints: List[
             elif ps.established_rate == BANK_USER_FEE:
                 # If we established at the bank rate and we don't own it, we
                 # pay the bank rate regardless
-                charges[player_i] = True
+                bank_charge = True
                 continue
         
         owner_i = s.get_owner(rr)
@@ -232,71 +239,80 @@ def charge_user_fees(s: GameState, i: Interface, player_i: int, waypoints: List[
                 0 if owner_i == player_i 
                 else (BANK_USER_FEE if owner_i == -1 
                 else OTHER_USER_FEE))
+        if owner_i == -1:
+            bank_charge = True
+        elif owner_i != player_i:
+            player_charges[owner_i] = True
 
-        charges[player_i if owner_i == -1 else owner_i] = True
-    
+    # Calculate total transaction amounts; this will trigger selling as needed
     bank_deltas = [0] * len(s.players)
-    for charge_i, do_charge in enumerate(charges):
-        if not do_charge:
-            continue
-        if charge_i == player_i:
-            bank_deltas[player_i] -= BANK_USER_FEE
-        else:
+    for charge_i, do_charge in enumerate(player_charges):
+        if do_charge:
+            assert charge_i != player_i, "Can't charge self user fees"
             bank_deltas[player_i] -= _other_user_fee
             bank_deltas[charge_i] += _other_user_fee
+    if bank_charge:
+        bank_deltas[player_i] -= BANK_USER_FEE
+    update_balances(s, i, bank_deltas, allow_selling=True)
 
-    if ps.bank + bank_deltas[player_i] < 0:
-        raise_funds(s, i, player_i, -(ps.bank + bank_deltas[player_i]))
+def check_destination(s: GameState, i: Interface, player_i: int) -> None:
+    ps = s.players[player_i]
+    needs_destination = ps.destination is None
+
+    # First, check if we've arrived at our destination on a "normal" trip
+    if not ps.declared and ps.atDestination:
+        # Calculate route payoff and distribute to player
+        payoff = s.route_payoffs[ps.startCity][ps.destination]
+        i.announce_route_payoff(s, player_i, payoff)
+        bank_deltas = [0] * len(s.players)
+        bank_deltas[player_i] = payoff
+        update_balances(s, i, bank_deltas)
+
+        # Allow player to purchase an engine or railroad
+        do_purchase(s, i, player_i)
+
+        # Ask player if they want to declare when eligible
+        if ps.canDeclare:
+            ps.declared = i.ask_to_declare(s, player_i)
+        needs_destination = True
+
+    # Roll for destination (if declared, this is alt destination)
+    if needs_destination:
+        s.set_player_destination(player_i, i.get_destination(s, player_i))
     
-    do_transaction(s, i, bank_deltas)
-
+# Check if player_i meets the win condition
 def check_for_winner(s: GameState, i: Interface, player_i: int) -> bool:
     ps = s.players[player_i]
+    return ps.declared and ps.atHomeCity and ps.bank >= MIN_CASH_TO_WIN
 
-    if not ps.declared and ps.canDeclare:
-        ps.declared = i.ask_to_declare(s, player_i)
-        if ps.declared:
-            # Set alternate destination
-            ps.set_destination(i.get_destination(s, player_i, alt=True))
+# Purchase an engine or railroad after a payoff
+def do_purchase(s: GameState, i: Interface, player_i: int):
+    ps = s.players[player_i]
+    purchase = i.get_purchase(s, player_i)
+    if purchase is None:
+        return # Player may not have enough funds, or may wish to skip purchase
 
-    if ps.declared:
-        return ps.atHomeCity and ps.bank >= MIN_CASH_TO_WIN
-    elif ps.destination < 0 or ps.atDestination:
-        ps.set_destination(i.get_destination(s, player_i))
-    return False
+    # Validate purchase and perform cash transaction
+    if purchase == Engine.Express.name :
+        assert ps.engine == Engine.Basic, "Can only upgrade basic -> express"
+        purchase_amt = EXPRESS_FEE
+    elif purchase == Engine.Superchief.name:
+        assert ps.engine != Engine.Superchief, "Can't buy a superchief twice"
+        purchase_amt = SUPERCHIEF_FEE
+    else:
+        assert purchase in s.map.railroads, "Must buy an engine or a railroad"
+        assert purchase not in ps.rr_owned, "Can't buy a railroad twice"
+        assert s.get_owner(purchase) == -1, "Can only buy RR from the bank"
+        purchase_amt = s.map.railroads[purchase].cost
+    assert purchase_amt <= ps.bank, "Can't spend more than bank on purchase"
+    bank_deltas = [0] * len(s.players)
+    bank_deltas[player_i] -= purchase_amt
+    update_balances(s, i, bank_deltas)
 
-def run_game(n_players: int, i: Interface):
-    s = init_game(i, n_players)
-    
-    player_i = 0
-    while True:
-        if check_for_winner(s,i, player_i):
-            break
-
-        # Record initial RR for user fee calculation later
-        init_rr = s.players[player_i].rr
-
-        # Roll for distance and move
-        d1,d2 = i.roll_for_distance(player_i)
-        waypoints = do_move(s, i, player_i, d1 + d2)
-
-        if check_for_winner(s,i, player_i):
-            break
-
-        # Make a bonus roll and move if possible
-        if s.players[player_i].check_bonus_roll(d1, d2):
-            waypoints += do_move(s, i, player_i, i.bonus_roll(player_i))
-
-        if check_for_winner(s,i, player_i):
-            break
-
-        # Pay the bank and/or other players for use of rails
-        charge_user_fees(s, i, player_i, waypoints, init_rr)
-
-        if check_for_winner(s,i, player_i):
-            break
-
-        # Move to the next player
-        player_i += 1
-        player_i = 0 if player_i >= n_players else player_i
-    i.show_winner(s, player_i)
+    # Only apply the *results* of the purchase after the asserts :)
+    if purchase == Engine.Express.name:
+        ps.engine = Engine.Express
+    elif purchase == Engine.Superchief.name:
+        ps.engine = Engine.Superchief
+    else:
+        ps.rr_owned.append(purchase)

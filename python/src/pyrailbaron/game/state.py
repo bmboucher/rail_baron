@@ -1,10 +1,11 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
-from typing import List, Tuple, Optional
+from typing import List, Dict, Tuple, Optional
 from enum import Enum
 
 from pyrailbaron.map.datamodel import read_map, Map
+from pyrailbaron.game.charts import read_route_payoffs
 
 class Engine(Enum):
     Basic = 0
@@ -18,59 +19,81 @@ Waypoint = Tuple[str, int] # Railroad name, dot
 @dataclass_json
 @dataclass
 class PlayerState:
+    index: int
     name: str
-    startCity: int
-    homeCity: int
-    destination: int
-    bank: int
-    engine: Engine
+    
+    # Cities have to be stored and read as strings
+    _homeCity: Optional[str] = None
+    _startCity: Optional[str] = None
+    _destination: Optional[str] = None
+
+    # Corresponding point IDs on the map are looked up once
+    _homeCityIndex: int = -1
+    _startCityIndex: int = -1
+    _destinationIndex: int = -1
+
+    @property
+    def homeCity(self) -> Optional[str]:
+        return self._homeCity
+    @property
+    def startCity(self) -> Optional[str]:
+        return self._startCity
+    @property
+    def destination(self) -> Optional[str]:
+        return self._destination
+
+    def _set_home_city(self, hc: str, hc_i: int):
+        assert hc_i >= 0, "Cannot set negative _homeCityIndex"
+        assert self._homeCity is None, "Can only set home city once"
+        assert self._startCity is None, "Can only set home city at the beginning"
+        self._homeCity = hc
+        self._homeCityIndex = hc_i
+        self._startCity = hc
+        self._startCityIndex = hc_i
+
+    def _set_destination(self, dest: str, dest_i: int):
+        assert dest_i >= 0, "Cannot set negative destination"
+        assert self.startCity is not None, "Can only set destination after start is set"
+        assert dest != self.destination, "Cannot set the same destination"
+        if self.destination:
+            assert self.atDestination, "Must reach one destination before setting another"
+        self._startCity = self._destination
+        self._startCityIndex = self._destinationIndex
+        self._destination = dest
+        self._destinationIndex = dest_i
+        self.history.clear()
+
+    bank: int = 0
+    engine: Engine = Engine.Basic
     rr: Optional[str] = None
     established_rate: Optional[float] = None
     rr_owned: List[str] = field(default_factory=list)
-    history: List[int] = field(default_factory=list) 
-        # List of locations previously visited this trip
-    declared: bool = field(default=False)
-    
+    history: List[Waypoint] = field(default_factory=list) 
+        # List of rail lines (i.e. rr + pt) used this trip
+    declared: bool = False
+
     @property
     def location(self) -> int:
         if len(self.history) == 0:
-            return self.startCity
+            return self._startCityIndex
         else:
             return self.history[-1][1]
 
-    def set_home_city(self, hc: int):
-        assert hc >= 0, "Cannot set negative home city"
-        assert self.homeCity < 0, "Home city can only be set once"
-        self.homeCity = hc
-        self.startCity = hc
-
-    def set_destination(self, dest: int):
-        assert dest >= 0, "Cannot set negative destination"
-        assert self.startCity > 0, "Cannot set destination until start city is set"
-        if self.destination >= 0:
-            assert self.atDestination, "Must reach one destination before setting another"
-        assert dest != self.destination, "Cannot set the same destination"
-        self.startCity = self.location
-        self.destination = dest
-        self.history.clear()
-
-    def move(self, pts: List[Tuple[str, int]]):
-        assert len(pts) > 0, "Move must contain at least one waypoint"
-        # TODO: Check continuity here
-        assert all(p != self.destination for _,p in pts[:-1]), "The destination must be the last waypoint"
-        assert all(wp not in self.history for wp in pts)
-        self.rr = pts[-1][0]
-        self.history += [p for _, p in pts]
+    def move(self, waypoints: List[Waypoint]):
+        assert len(waypoints) > 0, "Move must contain at least one waypoint"
+        assert all(pt_i != self._destinationIndex for _, pt_i 
+            in waypoints[:-1]), "The destination can only be the last waypoint"
+        assert all(wp not in self.history for wp in waypoints)
+        self.rr = waypoints[-1][0] # Store last RR visited
+        self.history += waypoints
 
     @property
     def atDestination(self) -> bool:
-        if self.destination < 0 or len(self.history) == 0:
-            return False
-        return self.destination == self.history[-1]
+        return self.destination is not None and self._destinationIndex == self.location
 
     @property
     def atHomeCity(self) -> bool:
-        return self.location == self.homeCity
+        return self.homeCity is not None and self._homeCityIndex == self.location
 
     @property
     def canDeclare(self) -> bool:
@@ -84,7 +107,14 @@ class PlayerState:
 @dataclass
 class GameState:
     map: Map = field(default_factory=read_map)
+    route_payoffs: Dict[str, Dict[str, int]] = field(default_factory=read_route_payoffs)
     players: List[PlayerState] = field(default_factory=list)
+
+    def set_player_home_city(self, player_i: int, hc: str):
+        self.players[player_i]._set_home_city(hc, self.map.lookup_city(hc))
+
+    def set_player_destination(self, player_i: int, dest: str):
+        self.players[player_i]._set_destination(dest, self.map.lookup_city(dest))
 
     def get_owner(self, rr: str) -> int:
         for i, ps in enumerate(self.players):

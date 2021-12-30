@@ -61,6 +61,9 @@ class Map:
         return A[0][0] * x + A[0][1] * y + b[0], \
                A[1][0] * x + A[1][1] * y + b[1]
 
+    def lookup_city(self, city: str) -> int:
+        return next(pt.index for pt in self.points if city in pt.city_names)
+
 def read_map(json_path: Path = None) -> Map:
     if not json_path:
         json_path = (Path(__file__) / '../../../../../data/map.json').resolve()
