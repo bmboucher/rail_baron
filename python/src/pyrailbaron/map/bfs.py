@@ -6,7 +6,8 @@ from typing import List, Set, Deque
 # Returns the list of shortest paths from pt_from to pt_to
 def breadth_first_search(
         m: Map, pt_from: int, pt_to: int, 
-        used_rail_segs: List[RailSegment] = []) -> List[List[Waypoint]]:
+        used_rail_segs: List[RailSegment] = [],
+        path_length_flex: int = 0) -> List[List[Waypoint]]:
     search_paths: Deque[List[Waypoint]] = deque()
     shortest_paths: List[List[Waypoint]] = []
     min_path_length: int = len(m.points)
@@ -26,14 +27,16 @@ def breadth_first_search(
 
         # Check if this is the current shortest path to pt_to
         end_pt = base_path[-1][1]
-        if end_pt == pt_to and len(base_path) <= min_path_length:
+        if end_pt == pt_to and len(base_path) <= min_path_length + path_length_flex:
             if len(base_path) < min_path_length:
-                shortest_paths.clear()
+                min_path_length = len(base_path)
+                shortest_paths = list(filter(
+                    lambda p: len(p) <= min_path_length + path_length_flex, 
+                    shortest_paths))
             shortest_paths.append(base_path)
-            min_path_length = len(base_path)
             
         # If this path is short enough, add the next level to the queue
-        if len(base_path) < min_path_length:
+        if len(base_path) < min_path_length + path_length_flex:
             for rr, conn_pts in m.points[end_pt].connections.items():
                 for next_pt in conn_pts:
                     rs = make_rail_seg(rr, end_pt, next_pt)

@@ -1,0 +1,97 @@
+from pyrailbaron.game.state import GameState
+from pyrailbaron.map.datamodel import Map, Waypoint, rail_segs_from_wps
+from pyrailbaron.map.bfs import breadth_first_search
+from pyrailbaron.game.fees import calculate_user_fees
+from typing import List, Optional, MutableSet
+from random import randint, sample
+
+N_SIM = 100
+def sim_roll() -> int:
+    return randint(1,6) + randint(1,6)
+
+MAX_PATHS = 100
+
+def calculate_path_cost(m: Map, player_i: int, path: List[Waypoint], d: int,
+        player_rr: List[List[str]], init_rr: str | None, 
+        established_rate: int | None, doubleFees: bool,
+        previous_moves: List[Waypoint] = []) -> int:
+    fixed_fees, est_rate = calculate_user_fees(
+        m, player_i, previous_moves + path[:d], player_rr, 
+        init_rr, established_rate, doubleFees)
+    fixed_cost = fixed_fees[player_i]
+    average_cost = 0
+    if len(path) > d:
+        if len(path) <= d + 2:
+            # If the next "hop" is <= 2 spaces, we don't need to simulate rolls
+            fixed_cost += calculate_user_fees(m, player_i, path[d:],
+                player_rr, init_rr, est_rate, doubleFees)[0][player_i]
+        else:
+            # Simulate N_SIM rolls to determine the average cost
+            for _ in range(N_SIM):
+                rem_path = path[d:]
+                my_est_rate = est_rate
+                my_init_rr = path[d - 1][0]
+                while len(rem_path) > 0:
+                    new_d = sim_roll()
+                    seg_path = rem_path[:new_d]
+                    fees, my_est_rate = calculate_user_fees(
+                        m, player_i, seg_path, 
+                        player_rr, my_init_rr, my_est_rate, doubleFees)
+                    average_cost += fees[player_i]
+                    rem_path = rem_path[new_d:]
+                    my_init_rr = seg_path[-1][0]
+            average_cost = average_cost // N_SIM
+    
+    return fixed_cost + average_cost
+
+def plan_best_moves(
+        s: GameState, player_i: int, d: int,
+        init_rr: Optional[str] = None, moves_so_far: int = 0,
+        forced_moves: List[Waypoint] = [],
+        dest_pt: int = -1, path_length_flex: int = 0) -> List[Waypoint]:
+    ps = s.players[player_i]
+    dest_pt = ps.destinationIndex if dest_pt < 0 else dest_pt
+    previous_moves = ps.history[(-moves_so_far):] if moves_so_far > 0 else []
+    assert ps.startCity, "Must know start city"
+    assert ps.destination, "Must know destination"
+    player_rr = [p.rr_owned for p in s.players]
+    doubleFees = s.doubleFees
+    def path_cost(path: List[Waypoint]):
+        return calculate_path_cost(s.map, player_i, path, d, player_rr,
+            init_rr, ps.established_rate, doubleFees, previous_moves)    
+
+    start_pt = ps.location if len(forced_moves) == 0 else forced_moves[-1][1]
+    d -= len(forced_moves)
+    used_rail_segs = rail_segs_from_wps(ps.startCityIndex, ps.history + forced_moves)
+    shortest_paths = breadth_first_search(
+        s.map, start_pt, dest_pt, used_rail_segs, path_length_flex)
+    print(f'  AI >> Found {len(shortest_paths)} paths')
+
+    if len(shortest_paths) > MAX_PATHS:
+        base_rrs: MutableSet[str] = set(rr for rr,_ in ps.history)
+        def rr_count(path: List[Waypoint]):
+            rrs: MutableSet[str] = base_rrs.copy()
+            for rr,_ in path[:d]:
+                rrs.add(rr)
+            return len(rrs)
+        path_rr_counts = list(map(rr_count, shortest_paths))
+        min_count = min(path_rr_counts)
+        shortest_paths = [p for p,c in zip(shortest_paths, path_rr_counts)
+            if c == min_count]
+        print(f'  AI >> Reduced to {len(shortest_paths)} paths using min RRs')
+
+    if len(shortest_paths) > MAX_PATHS:
+        shortest_paths = sample(shortest_paths, MAX_PATHS)
+        print(f'  AI >> Reduced to {len(shortest_paths)} paths at random')
+
+    costs = list(map(path_cost, shortest_paths))
+    best_path, cost = list(sorted(zip(shortest_paths, costs), key=lambda pair: -pair[1]))[0]
+    print(f'  AI >> Best path has length {len(best_path)} stops and cost {cost}')
+
+    final_path: List[Waypoint] = []
+    for rr, p in forced_moves + best_path[:d]:
+        final_path.append((rr,p))
+        if p == ps.destinationIndex:
+            break
+
+    return final_path

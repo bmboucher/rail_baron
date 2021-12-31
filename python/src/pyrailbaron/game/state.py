@@ -43,6 +43,14 @@ class PlayerState:
     def destination(self) -> Optional[str]:
         return self._destination
 
+    @property
+    def destinationIndex(self) -> int:
+        return self._homeCityIndex if self.declared else self._destinationIndex
+
+    @property
+    def startCityIndex(self) -> int:
+        return self._startCityIndex
+
     def _set_home_city(self, hc: str, hc_i: int):
         assert hc_i >= 0, "Cannot set negative _homeCityIndex"
         assert self._homeCity is None, "Can only set home city once"
@@ -67,7 +75,7 @@ class PlayerState:
     bank: int = 0
     engine: Engine = Engine.Basic
     rr: Optional[str] = None
-    established_rate: Optional[float] = None
+    established_rate: Optional[int] = None
     rr_owned: List[str] = field(default_factory=list)
     history: List[Waypoint] = field(default_factory=list) 
         # List of rail lines (i.e. rr + pt) used this trip

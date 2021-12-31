@@ -29,7 +29,7 @@ def run_game(n_players: int, i: Interface):
         d1,d2 = i.roll_for_distance(s, player_i)
         # Need to check for bonus roll before move in case we buy an engine
         do_bonus = ps.check_bonus_roll(d1, d2)
-        waypoints = do_move(s, i, player_i, d1 + d2)
+        waypoints = do_move(s, i, player_i, d1 + d2, init_rr, 0)
 
         # Make a bonus roll and move if possible
         if do_bonus:
@@ -40,7 +40,8 @@ def run_game(n_players: int, i: Interface):
             # We may need a new destination
             check_destination(s, i, player_i)
 
-            waypoints += do_move(s, i, player_i, i.bonus_roll(s, player_i))
+            waypoints += do_move(s, i, player_i, i.bonus_roll(s, player_i),
+                init_rr, len(waypoints))
 
         # Pay the bank and/or other players for use of rails
         charge_user_fees(s, i, player_i, waypoints, init_rr)
@@ -103,9 +104,12 @@ def update_balances(s: GameState, i: Interface, bank_deltas: List[int],
 
 # During this step the user selects their moves for either the initial roll
 # or the bonus roll; we don't collect user fees until both moves are done
-def do_move(s: GameState, i: Interface, player_i: int, d: int) -> List[Waypoint]:
+def do_move(s: GameState, i: Interface, player_i: int, d: int, init_rr: str | None, moves_so_far: int) -> List[Waypoint]:
     # Ask user for RRs and points to move through
-    waypoints = i.get_player_move(s, player_i, d)
+    waypoints = i.get_player_move(s, player_i, d, init_rr, moves_so_far)
+    assert len(waypoints) <= d, "Can't move more than the number of allocated spaces"
+    if len(waypoints) < d:
+        assert waypoints[-1][1] == s.players[player_i].destinationIndex, "Can only stop short at a destination"
     pts = [s.players[player_i].location] + [pt for _,pt in waypoints]
 
     # Update location
@@ -209,7 +213,11 @@ def auction(s: GameState, i: Interface, seller_i: int, rr_to_sell: str, min_sell
 # to the bank and/or other players for rails used
 def charge_user_fees(s: GameState, i: Interface, player_i: int, 
         waypoints: List[Waypoint], init_rr: str | None = None):
-    bank_deltas = calculate_user_fees(s, player_i, waypoints, init_rr)
+    ps = s.players[player_i]
+    player_rr = [p.rr_owned for p in s.players]
+    bank_deltas, ps.established_rate = calculate_user_fees(
+        s.map, player_i, waypoints, player_rr,
+        init_rr, ps.established_rate, s.doubleFees)
     update_balances(s, i, bank_deltas, allow_selling=True)
 
 def check_destination(s: GameState, i: Interface, player_i: int) -> None:

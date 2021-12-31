@@ -4,9 +4,12 @@ from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.state import GameState, Waypoint
 from pyrailbaron.game.moves import calculate_legal_moves
 from pyrailbaron.game.logic import run_game
+from pyrailbaron.game.ai import plan_best_moves
 
 from random import randint
 from typing import Tuple, List, Dict, Optional
+
+from pyrailbaron.map.datamodel import R_EARTH
 
 def roll2() -> Tuple[int, int]:
     rolls = randint(1,6), randint(1,6)
@@ -85,18 +88,45 @@ class CLI_Interface(Interface):
         print(f'  You rolled a {roll}')
         return roll
 
-    def get_player_move(self, s: GameState, player_i: int, d: int) -> List[Waypoint]:
+    def get_player_move(self, s: GameState, player_i: int, d: int, init_rr: str | None, moves_so_far: int) -> List[Waypoint]:
         ps = s.players[player_i]
-        print(f'{ps.name} >>> MOVE {d} SPACES')
+        print(f'{ps.name} >> MOVE {d} SPACES')
         print(f'  Current location: {s.map.points[ps.location].display_name}')
         dest_i = ps._destinationIndex if not ps.declared else ps._homeCityIndex
-        print(f'  Destination: {ps.destination if not ps.declared else ps.homeCity}, {s.map.points[dest_i].state}\n')
+        print(f'  Destination: {((ps.destination if not ps.declared else ps.homeCity) or "").replace("_","")}, {s.map.points[dest_i].state}\n')
         waypoints: List[Waypoint] = []
         def move_str(wp: Waypoint):
             rr, pt_i = wp
             rr_name = s.map.railroads[rr].shortName
             place_n = s.map.points[pt_i].display_name
             return f'Take the {rr_name} to {place_n}'
+        
+        if self.auto_move:
+            dest_pt = -1
+            min_dist = R_EARTH * 10
+            for oth_ps in s.players:
+                if oth_ps.declared and oth_ps.index != player_i:
+                    dist_to_declared = s.map.gc_distance(ps.location, oth_ps.location)
+                    if dist_to_declared < min_dist:
+                        dest_pt = oth_ps.location
+                        min_dist = dist_to_declared
+
+            if dest_pt > 0:
+                # Try to do a rover play
+                moves = plan_best_moves(s, player_i, d, init_rr, moves_so_far, 
+                    dest_pt=dest_pt, path_length_flex=2) 
+                
+                # Continue on to our proper destination if possible
+                if len(moves) <= d and dest_pt != ps.destinationIndex:
+                    moves = plan_best_moves(s, player_i, d, init_rr,
+                        moves_so_far, forced_moves=moves, path_length_flex=2)
+            else:
+                moves = plan_best_moves(s, player_i, d, init_rr, moves_so_far,
+                    path_length_flex=2)
+            for wp in moves:
+                print(f'  AI >> {move_str(wp)}')
+            return moves
+
         curr_pt = ps.location
         for _ in range(d):           
             moves = calculate_legal_moves(s.map, ps._startCityIndex, 
@@ -110,16 +140,13 @@ class CLI_Interface(Interface):
                     return s.map.gc_distance(dest_i, pt_i)
                 curr_dist = dist_to_dest(curr_pt)
                 moves = list(sorted(moves, key=lambda wp: dist_to_dest(wp[1])))
-                if not self.auto_move:
-                    print('You must choose...')
-                    for i, wp in enumerate(moves):
-                        delta = dist_to_dest(wp[1]) - curr_dist
-                        delta_str = f'{-delta:.1f}mi closer' if delta < 0 else f'{delta:.1f}mi farther'
-                        print(f'  [{i}] {move_str(wp)} ({delta_str})')
-                    next_wp = moves[int(input('YOUR CHOICE >>> '))]
-                else:
-                    print(f'AUTO >> {move_str(moves[0])}')                   
-                    next_wp = moves[0]
+
+                print('You must choose...')
+                for i, wp in enumerate(moves):
+                    delta = dist_to_dest(wp[1]) - curr_dist
+                    delta_str = f'{-delta:.1f}mi closer' if delta < 0 else f'{delta:.1f}mi farther'
+                    print(f'  [{i}] {move_str(wp)} ({delta_str})')
+                next_wp = moves[int(input('YOUR CHOICE >>> '))]
             waypoints.append(next_wp)
             curr_pt = next_wp[1]
             if curr_pt == dest_i:
@@ -130,7 +157,7 @@ class CLI_Interface(Interface):
         print('\nCURRENT POSITION:')
         for ps in s.players:
             rrs = [s.map.railroads[rr].shortName for rr in ps.rr_owned]
-            print(f'  {ps.name:10} {ps.bank:6}  {ps.engine.name:>10}   {", ".join(rrs)}')
+            print(f'  {ps.name:10} {"*" if ps.declared else " "} {ps.bank:6}  {ps.engine.name:>10}   {", ".join(rrs)}')
 
     def update_bank_amts(self, s: GameState):
         self.summarize(s)

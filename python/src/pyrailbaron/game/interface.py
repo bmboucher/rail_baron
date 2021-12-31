@@ -34,7 +34,7 @@ class Interface(ABC):
 
     # Select rail lines and points to move through given distance
     @abstractmethod
-    def get_player_move(self, s: GameState, player_i: int, d: int) -> List[Tuple[str, int]]:
+    def get_player_move(self, s: GameState, player_i: int, d: int, init_rr: str | None, moves_so_far: int) -> List[Tuple[str, int]]:
         pass
 
     # Display a change in bank balances (AFTER state s has been updated)
