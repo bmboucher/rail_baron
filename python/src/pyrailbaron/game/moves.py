@@ -30,6 +30,8 @@ def calculate_legal_moves(m: Map, start_pt: int, history: List[Waypoint]) -> Lis
                         wps.append((rr, pt_j))
         return wps
     def check_for_trapped(pt_i: int) -> bool:
+        if pt_i == curr_pt:
+            return False
         return len(valid_wp(pt_i)) < 2
     trapped_pts += list(filter(check_for_trapped, 
         [start_pt] + [p for _,p in history]))

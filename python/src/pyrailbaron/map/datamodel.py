@@ -1,13 +1,20 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from typing import Tuple, List, Set, Optional, Dict
-from math import sqrt
+from math import sqrt, asin, sin, cos, pi
 from pathlib import Path
 
 Coordinate = Tuple[float, float]
 
 def distance(p1: Coordinate, p2: Coordinate):
     return sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+R_EARTH = 3959.0
+def gc_distance(geo1: Coordinate, geo2: Coordinate, R: float = R_EARTH):
+    lat1, lon1 = geo1[0] * pi/180, geo1[1] * pi/180
+    lat2, lon2 = geo2[0] * pi/180, geo2[1] * pi/180
+    rhs = (sin((lat2-lat1)/2)**2) + cos(lat1)*cos(lat2)*(sin((lon2-lon1)/2)**2)
+    return 2*R*asin(sqrt(rhs))
 
 @dataclass_json
 @dataclass
@@ -48,7 +55,6 @@ class MapPoint:
 @dataclass_json
 @dataclass
 class Railroad:
-    id: str
     shortName: str
     longName: str
     cost: int
@@ -75,6 +81,13 @@ class Map:
                 if canon(c) == canon(city):
                     return c, pt.index
         raise StopIteration
+
+    def gc_distance(self, pt_i: int, pt_j: int, R: float = R_EARTH) -> float:
+        geo1 = self.points[pt_i].geo_coords
+        geo2 = self.points[pt_j].geo_coords
+        assert geo1, "Must have geo coords"
+        assert geo2, "Must have geo coords"
+        return gc_distance(geo1, geo2, R)
 
 def read_map(json_path: Path | None = None) -> Map:
     if not json_path:

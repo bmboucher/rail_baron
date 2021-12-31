@@ -1,4 +1,146 @@
 {
+  "railroads": {
+    "acl": {
+      "shortName": "ACL",
+      "longName": "Atlantic Coast Line",
+      "cost": 12000
+    },
+    "atsf": {
+      "shortName": "AT&SF",
+      "longName": "Atchison, Topeka, & Santa Fe",
+      "cost": 40000
+    },
+    "bm": {
+      "shortName": "B&M",
+      "longName": "Boston & Maine",
+      "cost": 4000
+    },
+    "bo": {
+      "shortName": "B&O",
+      "longName": "Baltimore & Ohio",
+      "cost": 24000
+    },
+    "cbq": {
+      "shortName": "CB&Q",
+      "longName": "Chicago, Burlington, & Quincy",
+      "cost": 20000
+    },
+    "cmstpp": {
+      "shortName": "CMSTP&P",
+      "longName": "Chicago, Milwaukee, St. Paul, & Pacific",
+      "cost": 18000
+    },
+    "cnw": {
+      "shortName": "C&NW",
+      "longName": "Chicago & NorthWestern",
+      "cost": 14000
+    },
+    "co": {
+      "shortName": "C&O",
+      "longName": "Chesapeake & Ohio",
+      "cost": 20000
+    },
+    "crip": {
+      "shortName": "CRI&P",
+      "longName": "Chicago, Rock Island & Pacific",
+      "cost": 29000
+    },
+    "drgw": {
+      "shortName": "D&RGW",
+      "longName": "Denver & Rio Grande Western",
+      "cost": 6000
+    },
+    "gmo": {
+      "shortName": "GM&O",
+      "longName": "Gulf, Mobile & Ohio",
+      "cost": 12000
+    },
+    "gn": {
+      "shortName": "GN",
+      "longName": "Great Northern",
+      "cost": 17000
+    },
+    "ic": {
+      "shortName": "IC",
+      "longName": "Illinois Central",
+      "cost": 14000
+    },
+    "mp": {
+      "shortName": "MP",
+      "longName": "Missouri Pacific",
+      "cost": 21000
+    },
+    "ln": {
+      "shortName": "L&N",
+      "longName": "Louisville & Nashville",
+      "cost": 18000
+    },
+    "np": {
+      "shortName": "NP",
+      "longName": "Northern Pacific",
+      "cost": 14000
+    },
+    "nw": {
+      "shortName": "N&W",
+      "longName": "Norfolk & Western",
+      "cost": 12000
+    },
+    "nyc": {
+      "shortName": "NYC",
+      "longName": "New York Central",
+      "cost": 28000
+    },
+    "nynhh": {
+      "shortName": "NYNH&H",
+      "longName": "New York, New Haven & Hartford",
+      "cost": 4000
+    },
+    "pa": {
+      "shortName": "PA",
+      "longName": "Pennsylvania",
+      "cost": 30000
+    },
+    "rfp": {
+      "shortName": "RF&P",
+      "longName": "Richmond, Fredericksburg & Potomac",
+      "cost": 4000
+    },
+    "sal": {
+      "shortName": "SAL",
+      "longName": "Seaboard Air Line",
+      "cost": 14000
+    },
+    "sou": {
+      "shortName": "SOU",
+      "longName": "Southern",
+      "cost": 20000
+    },
+    "sp": {
+      "shortName": "SP",
+      "longName": "Southern Pacific",
+      "cost": 42000
+    },
+    "slsf": {
+      "shortName": "SLSF",
+      "longName": "St. Louis - San Francisco",
+      "cost": 19000
+    },
+    "tp": {
+      "shortName": "T&P",
+      "longName": "Texas & Pacific",
+      "cost": 10000
+    },
+    "up": {
+      "shortName": "UP",
+      "longName": "Union Pacific",
+      "cost": 40000
+    },
+    "wp": {
+      "shortName": "WP",
+      "longName": "Western Pacific",
+      "cost": 8000
+    }
+  },
   "points": [
     {
       "index": 0,
@@ -12,6 +154,7 @@
       "geonames_lookup": "Miami-Dade County",
       "place_name": "Miami",
       "state": "FL",
+      "region": "SOUTHEAST",
       "geo_coords": [
         25.60897,
         -80.49867
@@ -143,6 +286,7 @@
       "geonames_lookup": "City of Tampa",
       "place_name": "Tampa",
       "state": "FL",
+      "region": "SOUTHEAST",
       "geo_coords": [
         27.968,
         -82.47638
@@ -223,6 +367,7 @@
       "geonames_lookup": "City of Jacksonville",
       "place_name": "Jacksonville",
       "state": "FL",
+      "region": "SOUTHEAST",
       "geo_coords": [
         30.33699,
         -81.66018
@@ -497,6 +642,7 @@
       "geonames_lookup": "City of Charleston",
       "place_name": "Charleston",
       "state": "SC",
+      "region": "SOUTHEAST",
       "geo_coords": [
         32.81323,
         -79.96346
@@ -690,6 +836,7 @@
       "geonames_lookup": "City of Norfolk",
       "place_name": "Norfolk",
       "state": "VA",
+      "region": "SOUTHEAST",
       "geo_coords": [
         36.89126,
         -76.26188
@@ -716,6 +863,7 @@
       "geonames_lookup": "City of Washington",
       "place_name": "Washington",
       "state": "DC",
+      "region": "NORTHEAST",
       "geo_coords": [
         38.90477,
         -77.01629
@@ -755,6 +903,7 @@
       "geonames_lookup": "City of Richmond",
       "place_name": "Richmond",
       "state": "VA",
+      "region": "SOUTHEAST",
       "geo_coords": [
         37.55376,
         -77.46026
@@ -942,6 +1091,7 @@
       "geonames_lookup": "City of Charlotte",
       "place_name": "Charlotte",
       "state": "NC",
+      "region": "SOUTHEAST",
       "geo_coords": [
         35.20797,
         -80.83082
@@ -1161,6 +1311,7 @@
       "geonames_lookup": "City of Baltimore",
       "place_name": "Baltimore",
       "state": "MD",
+      "region": "NORTHEAST",
       "geo_coords": [
         39.29038,
         -76.61219
@@ -1194,6 +1345,7 @@
       "geonames_lookup": "City of Philadelphia",
       "place_name": "Philadelphia",
       "state": "PA",
+      "region": "NORTHEAST",
       "geo_coords": [
         40.00764,
         -75.13396
@@ -1250,6 +1402,7 @@
       "geonames_lookup": "City of New York",
       "place_name": "New York",
       "state": "NY",
+      "region": "NORTHEAST",
       "geo_coords": [
         40.66393,
         -73.93827
@@ -1332,6 +1485,7 @@
       "geonames_lookup": "City of Boston",
       "place_name": "Boston",
       "state": "MA",
+      "region": "NORTHEAST",
       "geo_coords": [
         42.33222,
         -71.01643
@@ -1414,6 +1568,7 @@
       "geonames_lookup": "City of Portland",
       "place_name": "Portland",
       "state": "ME",
+      "region": "NORTHEAST",
       "geo_coords": [
         43.64708,
         -70.16823
@@ -1440,6 +1595,7 @@
       "geonames_lookup": "City of Albany",
       "place_name": "Albany",
       "state": "NY",
+      "region": "NORTHEAST",
       "geo_coords": [
         42.6664,
         -73.79868
@@ -1545,6 +1701,7 @@
       "geonames_lookup": "City of Buffalo",
       "place_name": "Buffalo",
       "state": "NY",
+      "region": "NORTHEAST",
       "geo_coords": [
         42.89225,
         -78.85941
@@ -1637,6 +1794,7 @@
       "geonames_lookup": "City of Pittsburgh",
       "place_name": "Pittsburgh",
       "state": "PA",
+      "region": "NORTHEAST",
       "geo_coords": [
         40.43962,
         -79.97626
@@ -1745,6 +1903,7 @@
       "geonames_lookup": "City of Cleveland",
       "place_name": "Cleveland",
       "state": "OH",
+      "region": "NORTH CENTRAL",
       "geo_coords": [
         41.47926,
         -81.68022
@@ -1830,6 +1989,7 @@
       "geonames_lookup": "City of Columbus",
       "place_name": "Columbus",
       "state": "OH",
+      "region": "NORTH CENTRAL",
       "geo_coords": [
         39.9861,
         -82.98509
@@ -2181,6 +2341,7 @@
       "geonames_lookup": "City of Detroit",
       "place_name": "Detroit",
       "state": "MI",
+      "region": "NORTH CENTRAL",
       "geo_coords": [
         42.38341,
         -83.10241
@@ -2368,6 +2529,7 @@
       "geonames_lookup": "City of Cincinnati",
       "place_name": "Cincinnati",
       "state": "OH",
+      "region": "NORTH CENTRAL",
       "geo_coords": [
         39.14117,
         -84.506
@@ -2590,6 +2752,7 @@
       "geonames_lookup": "City of Knoxville",
       "place_name": "Knoxville",
       "state": "TN",
+      "region": "SOUTHEAST",
       "geo_coords": [
         35.96906,
         -83.94959
@@ -2672,6 +2835,7 @@
       "geonames_lookup": "City of Atlanta",
       "place_name": "Atlanta",
       "state": "GA",
+      "region": "SOUTHEAST",
       "geo_coords": [
         33.76267,
         -84.42314
@@ -2911,6 +3075,7 @@
       "geonames_lookup": "City of Birmingham",
       "place_name": "Birmingham",
       "state": "AL",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         33.52758,
         -86.79867
@@ -3226,6 +3391,7 @@
       "geonames_lookup": "City of Mobile",
       "place_name": "Mobile",
       "state": "AL",
+      "region": "SOUTHEAST",
       "geo_coords": [
         30.66731,
         -88.10095
@@ -3281,6 +3447,7 @@
       "geonames_lookup": "City of New Orleans",
       "place_name": "New Orleans",
       "state": "LA",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         30.06864,
         -89.92813
@@ -3630,6 +3797,7 @@
       "geonames_lookup": "City of Shreveport",
       "place_name": "Shreveport",
       "state": "LA",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         32.46603,
         -93.79579
@@ -3839,6 +4007,7 @@
       "geonames_lookup": "City of Memphis",
       "place_name": "Memphis",
       "state": "TN",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         35.10463,
         -89.97891
@@ -4067,6 +4236,7 @@
       "geonames_lookup": "City of Chattanooga",
       "place_name": "Chattanooga",
       "state": "TN",
+      "region": "SOUTHEAST",
       "geo_coords": [
         35.06489,
         -85.25027
@@ -4176,6 +4346,7 @@
       "geonames_lookup": "Davidson County",
       "place_name": "Nashville",
       "state": "TN",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         36.17069,
         -86.77753
@@ -4435,6 +4606,7 @@
       "geonames_lookup": "City of Louisville",
       "place_name": "Louisville",
       "state": "KY",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         38.22502,
         -85.74154
@@ -4820,6 +4992,7 @@
       "geonames_lookup": "City of Saint Louis",
       "place_name": "St. Louis",
       "state": "MO",
+      "region": "NORTH CENTRAL",
       "geo_coords": [
         38.62727,
         -90.19789
@@ -5010,6 +5183,7 @@
       "geonames_lookup": "City of Indianapolis (balance)",
       "place_name": "Indianapolis",
       "state": "IN",
+      "region": "NORTH CENTRAL",
       "geo_coords": [
         39.77712,
         -86.14578
@@ -5097,6 +5271,7 @@
       "geonames_lookup": "City of Chicago",
       "place_name": "Chicago",
       "state": "IL",
+      "region": "NORTH CENTRAL",
       "geo_coords": [
         41.83691,
         -87.68475
@@ -5493,6 +5668,7 @@
       "geonames_lookup": "City of Des Moines",
       "place_name": "Des Moines",
       "state": "IA",
+      "region": "PLAINS",
       "geo_coords": [
         41.5725,
         -93.61037
@@ -5547,6 +5723,7 @@
       "geonames_lookup": "City of Omaha",
       "place_name": "Omaha",
       "state": "NE",
+      "region": "PLAINS",
       "geo_coords": [
         41.26427,
         -96.04162
@@ -5799,6 +5976,7 @@
       "geonames_lookup": "City of Milwaukee",
       "place_name": "Milwaukee",
       "state": "WI",
+      "region": "NORTH CENTRAL",
       "geo_coords": [
         43.06412,
         -87.96718
@@ -5935,6 +6113,7 @@
       "geonames_lookup": "City of Minneapolis",
       "place_name": "Minneapolis St. Paul",
       "state": "MN",
+      "region": "PLAINS",
       "geo_coords": [
         44.96194,
         -93.26694
@@ -6100,6 +6279,7 @@
       "geonames_lookup": "City of Kansas City",
       "place_name": "Kansas City",
       "state": "KS",
+      "region": "PLAINS",
       "geo_coords": [
         39.12346,
         -94.74419
@@ -6796,6 +6976,7 @@
       "geonames_lookup": "City of Little Rock",
       "place_name": "Little Rock",
       "state": "AR",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         34.72539,
         -92.35837
@@ -6959,6 +7140,7 @@
       "geonames_lookup": "Dallas County",
       "place_name": "Dallas",
       "state": "TX",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         32.76663,
         -96.77787
@@ -7065,6 +7247,7 @@
       "geonames_lookup": "City of Oklahoma City",
       "place_name": "Oklahoma City",
       "state": "OK",
+      "region": "PLAINS",
       "geo_coords": [
         35.46765,
         -97.51379
@@ -7375,6 +7558,7 @@
       "geonames_lookup": "City of Rapid City",
       "place_name": "Rapid City",
       "state": "SD",
+      "region": "NORTHWEST",
       "geo_coords": [
         44.07527,
         -103.23324
@@ -8060,6 +8244,7 @@
       "geonames_lookup": "City of Denver",
       "place_name": "Denver",
       "state": "CO",
+      "region": "PLAINS",
       "geo_coords": [
         39.76214,
         -104.87585
@@ -8253,6 +8438,7 @@
       "geonames_lookup": "City of Salt Lake City",
       "place_name": "Salt Lake City",
       "state": "UT",
+      "region": "NORTHWEST",
       "geo_coords": [
         40.77738,
         -111.93001
@@ -8488,6 +8674,7 @@
       "geonames_lookup": "City of Pueblo",
       "place_name": "Pueblo",
       "state": "CO",
+      "region": "PLAINS",
       "geo_coords": [
         38.27047,
         -104.61296
@@ -9186,6 +9373,7 @@
       "geonames_lookup": "City of Casper",
       "place_name": "Casper",
       "state": "WY",
+      "region": "NORTHWEST",
       "geo_coords": [
         42.8431,
         -106.32036
@@ -9291,6 +9479,7 @@
       "geonames_lookup": "City of Billings",
       "place_name": "Billings",
       "state": "MT",
+      "region": "NORTHWEST",
       "geo_coords": [
         45.78963,
         -108.54866
@@ -9584,6 +9773,7 @@
       "geonames_lookup": "City of Fargo",
       "place_name": "Fargo",
       "state": "ND",
+      "region": "PLAINS",
       "geo_coords": [
         46.86525,
         -96.82899
@@ -10096,6 +10286,7 @@
       "geonames_lookup": "Butte-Silver Bow",
       "place_name": "Butte",
       "state": "MT",
+      "region": "NORTHWEST",
       "geo_coords": [
         45.90225,
         -112.65663
@@ -10366,6 +10557,7 @@
       "geonames_lookup": "Spokane County",
       "place_name": "Spokane",
       "state": "WA",
+      "region": "NORTHWEST",
       "geo_coords": [
         47.62064,
         -117.40401
@@ -10452,6 +10644,7 @@
       "geonames_lookup": "City of Seattle",
       "place_name": "Seattle",
       "state": "WA",
+      "region": "NORTHWEST",
       "geo_coords": [
         47.62025,
         -122.35069
@@ -10588,11 +10781,12 @@
         170.99191633549924
       ],
       "city_names": [
-        "Portland"
+        "Portland_"
       ],
       "geonames_lookup": "City of Portland",
       "place_name": "Portland_",
       "state": "OR",
+      "region": "NORTHWEST",
       "geo_coords": [
         45.53717,
         -122.65004
@@ -10889,6 +11083,7 @@
       "geonames_lookup": "City of Sacramento",
       "place_name": "Sacramento",
       "state": "CA",
+      "region": "SOUTHWEST",
       "geo_coords": [
         38.56663,
         -121.4683
@@ -11252,6 +11447,7 @@
       "geonames_lookup": "City of Pocatello",
       "place_name": "Pocatello",
       "state": "ID",
+      "region": "NORTHWEST",
       "geo_coords": [
         42.87158,
         -112.46615
@@ -11514,6 +11710,7 @@
       "geonames_lookup": "City of Reno",
       "place_name": "Reno",
       "state": "NV",
+      "region": "SOUTHWEST",
       "geo_coords": [
         39.54863,
         -119.84856
@@ -11595,6 +11792,7 @@
       "geonames_lookup": "City of San Francisco",
       "place_name": "San Francisco Oakland",
       "state": "CA",
+      "region": "SOUTHWEST",
       "geo_coords": [
         37.77823,
         -122.4425
@@ -11907,6 +12105,7 @@
       "geonames_lookup": "City of Las Vegas",
       "place_name": "Las Vegas",
       "state": "NV",
+      "region": "SOUTHWEST",
       "geo_coords": [
         36.22742,
         -115.26265
@@ -12189,6 +12388,7 @@
       "geonames_lookup": "City of Los Angeles",
       "place_name": "Los Angeles",
       "state": "CA",
+      "region": "SOUTHWEST",
       "geo_coords": [
         34.15649,
         -118.53995
@@ -12872,6 +13072,7 @@
       "geonames_lookup": "City of Tucumcari",
       "place_name": "Tucumcari",
       "state": "NM",
+      "region": "SOUTHWEST",
       "geo_coords": [
         35.1701,
         -103.70411
@@ -12981,6 +13182,7 @@
       "geonames_lookup": "El Paso County",
       "place_name": "El Paso",
       "state": "TX",
+      "region": "SOUTHWEST",
       "geo_coords": [
         31.76855,
         -106.23483
@@ -13270,6 +13472,7 @@
       "geonames_lookup": "City of Fort Worth",
       "place_name": "Fort Worth",
       "state": "TX",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         32.78128,
         -97.34657
@@ -13568,6 +13771,7 @@
       "geonames_lookup": "City of San Antonio",
       "place_name": "San Antonio",
       "state": "TX",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         29.47215,
         -98.52468
@@ -13958,6 +14162,7 @@
       "geonames_lookup": "City of San Diego",
       "place_name": "San Diego",
       "state": "CA",
+      "region": "SOUTHWEST",
       "geo_coords": [
         32.81691,
         -117.13336
@@ -14084,6 +14289,7 @@
       "geonames_lookup": "City of Phoenix",
       "place_name": "Phoenix",
       "state": "AZ",
+      "region": "SOUTHWEST",
       "geo_coords": [
         33.57222,
         -112.0891

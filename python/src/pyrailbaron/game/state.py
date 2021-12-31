@@ -61,8 +61,8 @@ class PlayerState:
         assert dest != self.destination, "Cannot set the same destination"
         if self.destination:
             assert self.atDestination, "Must reach one destination before setting another"
-        self._startCity = self._destination
-        self._startCityIndex = self._destinationIndex
+            self._startCity = self._destination
+            self._startCityIndex = self._destinationIndex
         self._destination = dest
         self._destinationIndex = dest_i
         self.history.clear()

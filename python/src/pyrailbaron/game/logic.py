@@ -17,8 +17,7 @@ def run_game(n_players: int, i: Interface):
     while True:
         ps = s.players[player_i]
 
-        # We need to roll for destination on each player's first turn, otherwise
-        # this happens during do_move
+        # Roll for destination if needed
         check_destination(s, i, player_i)
 
         # Record initial RR for user fee calculation later
@@ -26,20 +25,25 @@ def run_game(n_players: int, i: Interface):
 
         # Roll for distance and move
         d1,d2 = i.roll_for_distance(s, player_i)
+        # Need to check for bonus roll before move in case we buy an engine
+        do_bonus = ps.check_bonus_roll(d1, d2)
         waypoints = do_move(s, i, player_i, d1 + d2)
 
-        # The first move could land in the home city for the win
-        if check_for_winner(s, i, player_i):
-            break
-
         # Make a bonus roll and move if possible
-        if ps.check_bonus_roll(d1, d2):
+        if do_bonus:
+            # The first move could land in the home city for the win
+            if check_for_winner(s, i, player_i):
+                break
+
+            # We may need a new destination
+            check_destination(s, i, player_i)
+
             waypoints += do_move(s, i, player_i, i.bonus_roll(s, player_i))
 
         # Pay the bank and/or other players for use of rails
         charge_user_fees(s, i, player_i, waypoints, init_rr)
 
-        # player_i may have become undeclared after paying fees so we check now
+        # Collect payoff and/or win
         if check_for_winner(s,i, player_i):
             break
 
@@ -118,7 +122,7 @@ def do_move(s: GameState, i: Interface, player_i: int, d: int) -> List[Waypoint]
             other_ps.declared = False
 
     # Check if player_i has reached destination for payoff/purchasing
-    check_destination(s, i, player_i)
+    check_arrival(s, i, player_i)
 
     return waypoints
 
@@ -249,31 +253,35 @@ def charge_user_fees(s: GameState, i: Interface, player_i: int,
 
 def check_destination(s: GameState, i: Interface, player_i: int) -> None:
     ps = s.players[player_i]
-    needs_destination = ps.destination is None
+    needs_destination = (ps.destination is None or (
+        ps.atDestination and not ps.declared))
 
-    # First, check if we've arrived at our destination on a "normal" trip
-    if not ps.declared and ps.atDestination:
-        assert ps.startCity is not None, "Must know start city"
-        assert ps.destination is not None, "Must know destination"
-
-        # Calculate route payoff and distribute to player
-        payoff = s.route_payoffs[ps.startCity][ps.destination]
-        i.announce_route_payoff(s, player_i, payoff)
-        bank_deltas = [0] * len(s.players)
-        bank_deltas[player_i] = payoff
-        update_balances(s, i, bank_deltas)
-
-        # Allow player to purchase an engine or railroad
-        do_purchase(s, i, player_i)
-
-        # Ask player if they want to declare when eligible
-        if ps.canDeclare:
-            ps.declared = i.ask_to_declare(s, player_i)
-        needs_destination = True
+    # Ask player if they want to declare when eligible
+    if not ps.declared and ps.canDeclare:
+        ps.declared = i.ask_to_declare(s, player_i)
 
     # Roll for destination (if declared, this is alt destination)
     if needs_destination:
         s.set_player_destination(player_i, i.get_destination(s, player_i))
+
+def check_arrival(s: GameState, i: Interface, player_i: int):
+    ps = s.players[player_i]
+    if ps.declared or not ps.atDestination:
+        # Haven't arrived yet
+        return
+
+    assert ps.startCity is not None, "Must know start city"
+    assert ps.destination is not None, "Must know destination"
+
+    # Calculate route payoff and distribute to player
+    payoff = s.route_payoffs[ps.startCity][ps.destination]
+    i.announce_route_payoff(s, player_i, payoff)
+    bank_deltas = [0] * len(s.players)
+    bank_deltas[player_i] = payoff
+    update_balances(s, i, bank_deltas)
+
+    # Allow player to purchase an engine or railroad
+    do_purchase(s, i, player_i)
     
 # Check if player_i meets the win condition
 def check_for_winner(s: GameState, i: Interface, player_i: int) -> bool:
@@ -311,3 +319,4 @@ def do_purchase(s: GameState, i: Interface, player_i: int):
         ps.engine = Engine.Superchief
     else:
         ps.rr_owned.append(purchase)
+        i.update_owners(s)
