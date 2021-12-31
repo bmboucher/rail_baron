@@ -1,13 +1,7 @@
-from pyrailbaron.map.datamodel import Map
-from pyrailbaron.game.state import Waypoint
-from typing import List, Tuple, MutableSet
+from pyrailbaron.map.datamodel import Map, Waypoint, RailSegment, make_rail_seg, get_valid_waypoints
+from typing import List, MutableSet
 
-RailSegment = Tuple[str, int, int]
-def make_rail_seg(rr: str, pt_i: int, pt_j: int) -> RailSegment:
-    assert pt_i != pt_j, "Rail segment must connect two different points"
-    return (rr, pt_i, pt_j) if pt_i < pt_j else (rr, pt_j, pt_i)
-
-def calculate_legal_moves(m: Map, start_pt: int, history: List[Waypoint]) -> List[Waypoint]:
+def calculate_legal_moves(m: Map, start_pt: int, history: List[Waypoint], dest_pt: int) -> List[Waypoint]:
     # First, collect the rail segs used so far
     rail_segs_used: List[RailSegment] = []
     curr_pt = start_pt
@@ -21,14 +15,7 @@ def calculate_legal_moves(m: Map, start_pt: int, history: List[Waypoint]) -> Lis
     # by those, etc...
     trapped_pts: List[int] = []
     def valid_wp(pt_i: int) -> List[Waypoint]:
-        wps: List[Waypoint] = []
-        for rr, pts in m.points[pt_i].connections.items():
-            for pt_j in pts:
-                if pt_j not in trapped_pts:
-                    rs = make_rail_seg(rr, pt_i, pt_j)
-                    if rs not in rail_segs_used:
-                        wps.append((rr, pt_j))
-        return wps
+        return get_valid_waypoints(m, pt_i, rail_segs_used, trapped_pts)
     def check_for_trapped(pt_i: int) -> bool:
         if pt_i == curr_pt:
             return False
@@ -51,4 +38,7 @@ def calculate_legal_moves(m: Map, start_pt: int, history: List[Waypoint]) -> Lis
                 trapped_pts.append(pt_i)
                 found_new = True
 
-    return valid_wp(curr_pt)
+    # We can't generally exclude "dead ends" like Tampa/Norfolk because they might
+    # be our destination
+    return [wp for wp in valid_wp(curr_pt)
+        if wp[1] == dest_pt or len(valid_wp(wp[1])) > 1]

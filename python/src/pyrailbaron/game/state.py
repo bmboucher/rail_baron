@@ -7,7 +7,7 @@ from typing import List, Dict, Tuple, Optional
 from enum import Enum
 
 from pyrailbaron.game.constants import *
-from pyrailbaron.map.datamodel import read_map, Map
+from pyrailbaron.map.datamodel import read_map, Map, Waypoint
 from pyrailbaron.game.charts import read_route_payoffs, read_roll_tables
 
 class Engine(Enum):
@@ -16,9 +16,6 @@ class Engine(Enum):
     Superchief = 2
 
 MIN_DECLARE_CASH = 200000
-
-Waypoint = Tuple[str, int] # Railroad name, dot
-RailSegment = Tuple[str, int, int] # Railroad name, dot pair (low, hi)
 
 @dataclass_json
 @dataclass
@@ -87,7 +84,6 @@ class PlayerState:
         assert len(waypoints) > 0, "Move must contain at least one waypoint"
         assert all(pt_i != self._destinationIndex for _, pt_i 
             in waypoints[:-1]), "The destination can only be the last waypoint"
-        assert all(wp not in self.history for wp in waypoints)
         self.rr = waypoints[-1][0] # Store last RR visited
         self.history += waypoints
 

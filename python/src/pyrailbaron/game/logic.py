@@ -4,6 +4,7 @@ the Interface class"""
 from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.state import Engine, GameState, PlayerState, Waypoint
 from pyrailbaron.game.constants import *
+from pyrailbaron.game.fees import calculate_user_fees
 from typing import List
 
 # Basic game loop, will run to completion unless error
@@ -15,6 +16,7 @@ def run_game(n_players: int, i: Interface):
     # Each loop is one player's turn, the loop only breaks when player_i wins
     player_i = 0
     while True:
+        i.announce_turn(s, player_i)
         ps = s.players[player_i]
 
         # Roll for destination if needed
@@ -111,6 +113,8 @@ def do_move(s: GameState, i: Interface, player_i: int, d: int) -> List[Waypoint]
 
     # Check for a rover play
     for player_j, other_ps in enumerate(s.players):
+        if player_i == player_j:
+            continue
         if other_ps.declared and other_ps.location in pts:
             i.announce_rover_play(s, player_j, player_i)
 
@@ -205,50 +209,7 @@ def auction(s: GameState, i: Interface, seller_i: int, rr_to_sell: str, min_sell
 # to the bank and/or other players for rails used
 def charge_user_fees(s: GameState, i: Interface, player_i: int, 
         waypoints: List[Waypoint], init_rr: str | None = None):
-    ps = s.players[player_i]
-
-    # Do a one-time check if all RRs are owned; if so, user fees double
-    _other_user_fee = OTHER_USER_FEE * (2 if s.doubleFees else 1)
-
-    # Determine who we have to pay charges to
-    bank_charge = False
-    player_charges = [False] * len(s.players)    
-    on_first_rr = init_rr is not None
-    for rr, _ in waypoints:
-        if rr != init_rr:
-            # As soon as we leave the RR we were on, the established rate no
-            # longer applies
-            on_first_rr = False
-        elif on_first_rr:
-            if ps.established_rate == 0 or rr in ps.rr_owned:
-                continue # No charge if we started free or own it now
-            elif ps.established_rate == BANK_USER_FEE:
-                # If we established at the bank rate and we don't own it, we
-                # pay the bank rate regardless
-                bank_charge = True
-                continue
-        
-        owner_i = s.get_owner(rr)
-        if not on_first_rr:
-            # Update established rate
-            ps.established_rate = (
-                0 if owner_i == player_i 
-                else (BANK_USER_FEE if owner_i == -1 
-                else OTHER_USER_FEE))
-        if owner_i == -1:
-            bank_charge = True
-        elif owner_i != player_i:
-            player_charges[owner_i] = True
-
-    # Calculate total transaction amounts; this will trigger selling as needed
-    bank_deltas = [0] * len(s.players)
-    for charge_i, do_charge in enumerate(player_charges):
-        if do_charge:
-            assert charge_i != player_i, "Can't charge self user fees"
-            bank_deltas[player_i] -= _other_user_fee
-            bank_deltas[charge_i] += _other_user_fee
-    if bank_charge:
-        bank_deltas[player_i] -= BANK_USER_FEE
+    bank_deltas = calculate_user_fees(s, player_i, waypoints, init_rr)
     update_balances(s, i, bank_deltas, allow_selling=True)
 
 def check_destination(s: GameState, i: Interface, player_i: int) -> None:

@@ -38,6 +38,10 @@ class MapPoint:
         # Final coordinates in the .svg
     region: Optional[str] = None
 
+    @property
+    def display_name(self) -> str:
+        return f'{(self.place_name or "").replace("_","")}, {self.state}'
+
     def _connect_to(self, other: 'MapPoint', rr: str):
         if rr not in self.connections:
             self.connections[rr] = set()
@@ -94,3 +98,28 @@ def read_map(json_path: Path | None = None) -> Map:
         json_path = (Path(__file__) / '../../../../../data/map.json').resolve()
     with json_path.open('r') as json_file:
         return Map.from_json(json_file.read()) # type: ignore
+
+Waypoint = Tuple[str, int]         # Railroad name, dot
+RailSegment = Tuple[str, int, int] # Railroad name + 2 dots (in order)
+
+def make_rail_seg(rr: str, pt_i: int, pt_j: int) -> RailSegment:
+    assert pt_i != pt_j, "Rail segment must connect two different points"
+    return (rr, pt_i, pt_j) if pt_i < pt_j else (rr, pt_j, pt_i)
+
+def rail_segs_from_wps(start_pt: int, wp: List[Waypoint]) -> List[RailSegment]:
+    curr_pt = start_pt
+    rail_segs: List[RailSegment] = []
+    for rr, next_pt in wp:
+        rail_segs.append(make_rail_seg(rr, curr_pt, next_pt)); next_pt = curr_pt
+    return rail_segs
+
+def get_valid_waypoints(m: Map, pt_i: int, 
+        exclude_rs: List[RailSegment] = [], 
+        exclude_pts: List[int] = []) -> List[Waypoint]:
+    wps: List[Waypoint] = []
+    for rr, conn_pts in m.points[pt_i].connections.items():
+        for pt_j in conn_pts:
+            rs = make_rail_seg(rr, pt_i, pt_j)
+            if pt_j not in exclude_pts and rs not in exclude_rs:
+                wps.append((rr, pt_j))
+    return wps

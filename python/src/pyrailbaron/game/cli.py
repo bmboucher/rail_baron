@@ -6,7 +6,7 @@ from pyrailbaron.game.moves import calculate_legal_moves
 from pyrailbaron.game.logic import run_game
 
 from random import randint
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Dict, Optional
 
 def roll2() -> Tuple[int, int]:
     rolls = randint(1,6), randint(1,6)
@@ -21,8 +21,21 @@ def roll3() -> Tuple[int, int, int]:
 REGIONS: List[str] = [
     'NORTHWEST','SOUTHWEST','PLAINS',
     'NORTH CENTRAL','SOUTH CENTRAL','NORTHEAST','SOUTHEAST']
+REROLL_REGIONS: Dict[str, str] = {
+    'NORTHWEST': 'SOUTHEAST',
+    'SOUTHWEST':'NORTHEAST',
+    'PLAINS': 'SOUTHEAST',
+    'NORTH CENTRAL': 'SOUTHWEST',
+    'SOUTH CENTRAL': 'NORTHWEST',
+    'NORTHEAST': 'SOUTHWEST',
+    'SOUTHEAST': 'NORTHWEST'
+}
 
 class CLI_Interface(Interface):
+    def __init__(self, auto_move: bool = False):
+        self.auto_move = auto_move
+        self.turn_count = 0
+
     def get_player_name(self, player_i: int) -> str:
         return input(f'Player {player_i + 1} name: ')
 
@@ -36,6 +49,10 @@ class CLI_Interface(Interface):
         print(f'  Home city = {city}\n')
         return city
 
+    def announce_turn(self, s: GameState, player_i: int):
+        self.turn_count += 1
+        print(f"Starting {s.players[player_i].name}'s turn (#{self.turn_count})")
+
     def get_destination(self, s: GameState, player_i: int) -> str:
         ps = s.players[player_i]
         print(f'{ps.name} >> ROLL FOR DESTINATION')
@@ -43,10 +60,13 @@ class CLI_Interface(Interface):
         print(f'  Region = {region}')
         player_region = s.map.points[ps.location].region
         if region == player_region:
-            print('  YOU CHOOSE: ')
-            for i,r in enumerate(REGIONS):
-                print(f'    [{i}] {r}')
-            region = REGIONS[int(input(f'  {ps.name} >> Select region: '))]
+            if self.auto_move:
+                region = REROLL_REGIONS[region]
+            else:
+                print('  YOU CHOOSE: ')
+                for i,r in enumerate(REGIONS):
+                    print(f'    [{i}] {r}')
+                region = REGIONS[int(input(f'  {ps.name} >> Select region: '))]
         city = s.lookup_roll_table(region, *roll3())
         city, city_i = s.map.lookup_city(city)
         while city_i == ps.location:
@@ -62,22 +82,25 @@ class CLI_Interface(Interface):
     def bonus_roll(self, s: GameState, player_i: int) -> int:
         print(f'{s.players[player_i].name} >> BONUS ROLL')
         roll = randint(1,6)
-        print(f'You rolled a {roll}')
+        print(f'  You rolled a {roll}')
         return roll
 
     def get_player_move(self, s: GameState, player_i: int, d: int) -> List[Waypoint]:
         ps = s.players[player_i]
         print(f'{ps.name} >>> MOVE {d} SPACES')
-        print(f'  Current location: {s.map.points[ps.location].place_name} ({ps.location})')
+        print(f'  Current location: {s.map.points[ps.location].display_name}')
         dest_i = ps._destinationIndex if not ps.declared else ps._homeCityIndex
-        print(f'  Destination: {ps.destination if not ps.declared else ps.homeCity} ({dest_i})\n')
+        print(f'  Destination: {ps.destination if not ps.declared else ps.homeCity}, {s.map.points[dest_i].state}\n')
         waypoints: List[Waypoint] = []
         def move_str(wp: Waypoint):
             rr, pt_i = wp
-            return f'Take the {s.map.railroads[rr].shortName} to {s.map.points[pt_i].place_name} ({pt_i})'
+            rr_name = s.map.railroads[rr].shortName
+            place_n = s.map.points[pt_i].display_name
+            return f'Take the {rr_name} to {place_n}'
         curr_pt = ps.location
         for _ in range(d):           
-            moves = calculate_legal_moves(s.map, ps._startCityIndex, ps.history + waypoints)
+            moves = calculate_legal_moves(s.map, ps._startCityIndex, 
+                ps.history + waypoints, dest_i)
             assert len(moves) > 0, "Must have at least one legal move!"
             if len(moves) == 1:
                 print(f'AUTO >> {move_str(moves[0])}')
@@ -87,29 +110,33 @@ class CLI_Interface(Interface):
                     return s.map.gc_distance(dest_i, pt_i)
                 curr_dist = dist_to_dest(curr_pt)
                 moves = list(sorted(moves, key=lambda wp: dist_to_dest(wp[1])))
-                print('You must choose...')
-                for i, wp in enumerate(moves):
-                    delta = dist_to_dest(wp[1]) - curr_dist
-                    delta_str = f'{-delta:.1f}mi closer' if delta < 0 else f'{delta:.1f}mi farther'
-                    print(f'  [{i}] {move_str(wp)} ({delta_str})')
-                next_wp = moves[int(input('YOUR CHOICE >>> '))]
+                if not self.auto_move:
+                    print('You must choose...')
+                    for i, wp in enumerate(moves):
+                        delta = dist_to_dest(wp[1]) - curr_dist
+                        delta_str = f'{-delta:.1f}mi closer' if delta < 0 else f'{delta:.1f}mi farther'
+                        print(f'  [{i}] {move_str(wp)} ({delta_str})')
+                    next_wp = moves[int(input('YOUR CHOICE >>> '))]
+                else:
+                    print(f'AUTO >> {move_str(moves[0])}')                   
+                    next_wp = moves[0]
             waypoints.append(next_wp)
             curr_pt = next_wp[1]
             if curr_pt == dest_i:
                 break
         return waypoints
 
-    def update_bank_amts(self, s: GameState):
-        print('========\nBANK SUMMARY:')
+    def summarize(self, s: GameState):
+        print('\nCURRENT POSITION:')
         for ps in s.players:
-            print(f'  {ps.name:10} = {ps.bank:10}')
-        print()
+            rrs = [s.map.railroads[rr].shortName for rr in ps.rr_owned]
+            print(f'  {ps.name:10} {ps.bank:6}  {ps.engine.name:>10}   {", ".join(rrs)}')
+
+    def update_bank_amts(self, s: GameState):
+        self.summarize(s)
 
     def update_owners(self, s: GameState):
-        print('========\nRAILROADS OWNED:')
-        for ps in s.players:
-            print(f'  {ps.name:10} = {", ".join(ps.rr_owned)}')
-        print()
+        self.summarize(s)
 
     def display_shortfall(self, s: GameState, player_i: int, amt: int):
         ps = s.players[player_i]
@@ -126,8 +153,8 @@ class CLI_Interface(Interface):
 
     def announce_route_payoff(self, s: GameState, player_i: int, amt: int):
         ps = s.players[player_i]
-        print(f'{ps.name} HAS COMPLETED {ps.startCity} TO {ps.destination}!')
-        print(f'{len(ps.history)} stops, payoff = {amt}')
+        print(f'\n{ps.name} HAS COMPLETED {ps.startCity} TO {ps.destination}!')
+        print(f'  {len(ps.history)} stops, payoff = {amt}')
 
     def ask_to_auction(self, s: GameState, player_i: int, rr_to_sell: str) -> bool:
         print('Choose...')
@@ -151,10 +178,16 @@ class CLI_Interface(Interface):
 
     def get_purchase(self, s: GameState, player_i: int) -> Optional[str]:
         options: List[Tuple[str, int]] = s.get_player_purchase_opts(player_i)
-        print(f'{s.players[player_i].name} >>> SELECT PURCHASE')
-        print('  [0] NONE')
+        if len(options) == 0:
+            return None
+        ps = s.players[player_i]
+        print(f'{ps.name} >>> SELECT PURCHASE ({ps.bank} BANK)')
+        print('  [ 0] NONE')
+        options = list(sorted(options, key = lambda op: op[1]))
         for opt_i, (opt, p) in enumerate(options):
-            print(f'  [{opt_i+1}] {opt:10} {p:10}')
+            if opt not in ['Express', 'Superchief']:
+                opt = s.map.railroads[opt].shortName
+            print(f'  [{opt_i+1:2}] {opt:10} {p:6}')
         sel = int(input('Your choice: '))
         if sel == 0:
             return None
@@ -179,12 +212,13 @@ class CLI_Interface(Interface):
         print(f'{dec_pn} IS NO LONGER DECLARED')
 
     def show_winner(self, s: GameState, winner_i: int):
-        print(f'{s.players[winner_i].name} IS THE WINNER !!!!!')
+        print(f'\n{s.players[winner_i].name} IS THE WINNER !!!!!')
+        print(f'{self.turn_count} TURNS TOTAL')
         print('\nFINAL SUMMARY')
-        print('         PLAYER       BANK   RRS')
+        print('PLAYER           BANK   RRS')
         for p in s.players:
-            print(f'{p.name:15} {p.bank:10} {len(p.rr_owned):6}')
+            print(f'{p.name:14} {p.bank:6} {len(p.rr_owned):5}')
 
 if __name__ == '__main__':
-    i = CLI_Interface()
-    run_game(2,i)
+    i = CLI_Interface(auto_move=True)
+    run_game(4,i)

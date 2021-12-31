@@ -12,6 +12,11 @@ class Interface(ABC):
     def get_home_city(self, s: GameState, player_i: int) -> str:
         pass
 
+    # Announce the start of player i's turn
+    @abstractmethod
+    def announce_turn(self, s: GameState, player_i: int):
+        pass
+
     # Roll for destination city
     @abstractmethod
     def get_destination(self, s: GameState, player_i: int) -> str:
