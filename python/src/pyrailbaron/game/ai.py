@@ -2,15 +2,20 @@ from pyrailbaron.game.state import GameState
 from pyrailbaron.map.datamodel import Map, Waypoint, rail_segs_from_wps
 from pyrailbaron.map.bfs import breadth_first_search
 from pyrailbaron.game.fees import calculate_user_fees
-from typing import List, Optional, MutableSet
+from typing import List, Optional, Callable
 from random import randint, sample
 
-N_SIM = 100
+N_PATH_ROLL_SIM = 100
 def sim_roll() -> int:
     return randint(1,6) + randint(1,6)
 
 MAX_PATHS = 100
 
+# Evaluate the cost of a given path with a known die roll d
+# player_rr = ownership information (i.e. p.rr_owned for each p)
+# init_rr, established_rate = "established" information
+# doubleFees = all RRs owned
+# previous_moves = moves already taken this turn (e.g. if this is a bonus roll)
 def calculate_path_cost(m: Map, player_i: int, path: List[Waypoint], d: int,
         player_rr: List[List[str]], init_rr: str | None, 
         established_rate: int | None, doubleFees: bool,
@@ -27,7 +32,7 @@ def calculate_path_cost(m: Map, player_i: int, path: List[Waypoint], d: int,
                 player_rr, init_rr, est_rate, doubleFees)[0][player_i]
         else:
             # Simulate N_SIM rolls to determine the average cost
-            for _ in range(N_SIM):
+            for _ in range(N_PATH_ROLL_SIM):
                 rem_path = path[d:]
                 my_est_rate = est_rate
                 my_init_rr = path[d - 1][0]
@@ -40,10 +45,51 @@ def calculate_path_cost(m: Map, player_i: int, path: List[Waypoint], d: int,
                     average_cost += fees[player_i]
                     rem_path = rem_path[new_d:]
                     my_init_rr = seg_path[-1][0]
-            average_cost = average_cost // N_SIM
+            average_cost = average_cost // N_PATH_ROLL_SIM
     
     return fixed_cost + average_cost
 
+def reduce_paths(paths: List[List[Waypoint]], N: int,
+    history: List[Waypoint] = []) -> List[List[Waypoint]]:
+    if len(paths) <= N:
+        return paths # Nothing to do
+
+    def filter_by_metric(metric: Callable[[List[Waypoint]], int]):
+        nonlocal paths
+        met = list(map(metric, paths))
+        min_val = min(met)
+        paths = [p for p, v in zip(paths, met) if v == min_val]
+    
+    # First, try to reduce count by keeping only the paths which touch the
+    # smallest NUMBER of railroads
+    def count_rrs(path: List[Waypoint]):
+        rr_set = set([rr for rr,_ in history] + [rr for rr,_ in path])
+        return len(rr_set)
+    filter_by_metric(count_rrs)
+    if len(paths) <= N:
+        return paths
+
+    # If that isn't enough, keep paths with the minimum number of TRANSITIONS
+    def count_trans(path: List[Waypoint]):
+        curr_rr: str | None = None
+        t_count: int = 0
+        for rr, _ in history + path:
+            if rr != curr_rr:
+                curr_rr = rr; t_count += 1
+        return t_count
+    filter_by_metric(count_trans)
+
+    if len(paths) > N:
+        # If we still have too many, take a random sample
+        paths = sample(paths, N)
+    return paths
+
+# Plan the best move sequence given a known die roll d
+# init_rr = previously recorded RR player_i was on when turn began
+# moves_so_far = # of moves taken previously this turn (already in the history)
+# forced_moves = required fixed moves at the beginning (used when planning rovers)
+# dest_pt = override player_i destination (used when planning rovers)
+# path_length_flex = used to allow path lengths longer than minimum to be checked
 def plan_best_moves(
         s: GameState, player_i: int, d: int,
         init_rr: Optional[str] = None, moves_so_far: int = 0,
@@ -68,21 +114,8 @@ def plan_best_moves(
     print(f'  AI >> Found {len(shortest_paths)} paths')
 
     if len(shortest_paths) > MAX_PATHS:
-        base_rrs: MutableSet[str] = set(rr for rr,_ in ps.history)
-        def rr_count(path: List[Waypoint]):
-            rrs: MutableSet[str] = base_rrs.copy()
-            for rr,_ in path[:d]:
-                rrs.add(rr)
-            return len(rrs)
-        path_rr_counts = list(map(rr_count, shortest_paths))
-        min_count = min(path_rr_counts)
-        shortest_paths = [p for p,c in zip(shortest_paths, path_rr_counts)
-            if c == min_count]
-        print(f'  AI >> Reduced to {len(shortest_paths)} paths using min RRs')
-
-    if len(shortest_paths) > MAX_PATHS:
-        shortest_paths = sample(shortest_paths, MAX_PATHS)
-        print(f'  AI >> Reduced to {len(shortest_paths)} paths at random')
+        shortest_paths = reduce_paths(shortest_paths, MAX_PATHS, ps.history)
+        print(f'  AI >> Reduced to {len(shortest_paths)} paths')
 
     costs = list(map(path_cost, shortest_paths))
     best_path, cost = list(sorted(zip(shortest_paths, costs), key=lambda pair: -pair[1]))[0]

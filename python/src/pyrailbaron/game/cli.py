@@ -104,12 +104,16 @@ class CLI_Interface(Interface):
         if self.auto_move:
             dest_pt = -1
             min_dist = R_EARTH * 10
-            for oth_ps in s.players:
-                if oth_ps.declared and oth_ps.index != player_i:
-                    dist_to_declared = s.map.gc_distance(ps.location, oth_ps.location)
-                    if dist_to_declared < min_dist:
-                        dest_pt = oth_ps.location
-                        min_dist = dist_to_declared
+            if not ps.declared:
+                # Undeclared players will check if other players are declared and
+                # attempt to rover them if possible
+                for oth_ps in s.players:
+                    if oth_ps.declared:
+                        assert ps.index != oth_ps.index, "Players cannot rover themselves"
+                        dist_to_declared = s.map.gc_distance(ps.location, oth_ps.location)
+                        if dist_to_declared < min_dist:
+                            dest_pt = oth_ps.location
+                            min_dist = dist_to_declared
 
             if dest_pt > 0:
                 # Try to do a rover play
@@ -117,7 +121,8 @@ class CLI_Interface(Interface):
                     dest_pt=dest_pt, path_length_flex=2) 
                 
                 # Continue on to our proper destination if possible
-                if len(moves) <= d and dest_pt != ps.destinationIndex:
+                if (len(moves) <= d and dest_pt != ps.destinationIndex
+                        and moves[-1][1] != ps.destinationIndex):
                     moves = plan_best_moves(s, player_i, d, init_rr,
                         moves_so_far, forced_moves=moves, path_length_flex=2)
             else:

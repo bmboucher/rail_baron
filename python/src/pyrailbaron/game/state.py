@@ -10,6 +10,8 @@ from pyrailbaron.game.constants import *
 from pyrailbaron.map.datamodel import read_map, Map, Waypoint
 from pyrailbaron.game.charts import read_route_payoffs, read_roll_tables
 
+from random import randint
+
 class Engine(Enum):
     Basic = 0
     Express = 1
@@ -141,11 +143,23 @@ class GameState:
         # Only double fees if all RRs are owned (i.e. none are owned by bank)
         return True
 
+    def get_roll_table_probabilities(self, table: str) -> Dict[str, float]:
+        probs: Dict[str, float] = {}
+        for i, (odd, even) in enumerate(self.roll_tables):
+            p: float = (6 - abs(i - 5)) / 36  # i = 5 -> d = 7 -> most common
+            probs[odd] += p / 2
+            probs[even] += p / 2
+        return probs
+
     def lookup_roll_table(self, table: str, d1: int, d2: int, d3: int) -> str:
         for d in [d1, d2, d3]:
             assert d >= 1 and d <= 6, "Die rolls must be 1-6"
         odd, even = self.roll_tables[table][d1 + d2 - 2]
         return even if d3 % 2 == 0 else odd
+
+    def random_lookup(self, table: str) -> str:
+        return self.lookup_roll_table(table, 
+            randint(1,6), randint(1,6), randint(1,6))
 
     def get_player_purchase_opts(self, player_i: int) -> List[Tuple[str, int]]:
         ps = self.players[player_i]

@@ -21,6 +21,8 @@ def run_game(n_players: int, i: Interface):
 
         # Roll for destination if needed
         check_destination(s, i, player_i)
+        if check_for_winner(s, i, player_i):
+            break
 
         # Record initial RR for user fee calculation later
         init_rr = ps.rr
