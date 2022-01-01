@@ -109,6 +109,10 @@ class PlayerState:
     def canDeclare(self) -> bool:
         return self.atDestination and self.bank >= MIN_DECLARE_CASH
 
+    @property
+    def winner(self) -> bool:
+        return self.atHomeCity and self.declared and self.bank >= MIN_DECLARE_CASH
+
     def check_bonus_roll(self, d1: int, d2: int) -> bool:
         return ((self.engine == Engine.Express and d1 == d2) or
             self.engine == Engine.Superchief)

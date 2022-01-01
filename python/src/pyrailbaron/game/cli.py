@@ -208,15 +208,17 @@ class CLI_Interface(Interface):
     def announce_sale_to_bank(self, s: GameState, seller_i: int, rr: str, price: int):
         print(f'{s.players[seller_i].name} SELLS {rr} TO THE BANK FOR {price}')
 
-    def get_purchase(self, s: GameState, player_i: int) -> Optional[str]:
+    def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> Optional[str]:
         options: List[Tuple[str, int]] = s.get_player_purchase_opts(player_i)
         if len(options) == 0:
             return None
         ps = s.players[player_i]
-        print(f'{ps.name} >>> SELECT PURCHASE ({ps.bank} BANK)')
+        print(f'{ps.name} >>> SELECT PURCHASE ({ps.bank + user_fee} AVAILABLE)')
         print('  [ 0] NONE')
         options = list(sorted(options, key = lambda op: op[1]))
         for opt_i, (opt, p) in enumerate(options):
+            if p >= ps.bank + user_fee:
+                continue
             if opt not in ['Express', 'Superchief']:
                 opt = s.map.railroads[opt].shortName
             print(f'  [{opt_i+1:2}] {opt:10} {p:6}')

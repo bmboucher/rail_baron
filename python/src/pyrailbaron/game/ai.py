@@ -1,13 +1,19 @@
-from pyrailbaron.game.state import GameState
+from pyrailbaron.game.state import Engine, GameState
 from pyrailbaron.map.datamodel import Map, Waypoint, rail_segs_from_wps
-from pyrailbaron.map.bfs import breadth_first_search
+from pyrailbaron.map.bfs import breadth_first_search, DEFAULT_PATHS_FILE
 from pyrailbaron.game.fees import calculate_user_fees
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Dict
 from random import randint, sample
+from pathlib import Path
+import csv
 
 N_PATH_ROLL_SIM = 100
-def sim_roll() -> int:
-    return randint(1,6) + randint(1,6)
+def sim_roll(e: Engine) -> int:
+    d1, d2 = randint(1,6), randint(1,6)
+    d = d1 + d2
+    if (d1 == d2 and e == Engine.Express) or e == Engine.Superchief:
+        d += randint(1,6)
+    return d
 
 MAX_PATHS = 100
 
@@ -16,7 +22,8 @@ MAX_PATHS = 100
 # init_rr, established_rate = "established" information
 # doubleFees = all RRs owned
 # previous_moves = moves already taken this turn (e.g. if this is a bonus roll)
-def calculate_path_cost(m: Map, player_i: int, path: List[Waypoint], d: int,
+def calculate_path_cost(m: Map, e: Engine, 
+        player_i: int, path: List[Waypoint], d: int,
         player_rr: List[List[str]], init_rr: str | None, 
         established_rate: int | None, doubleFees: bool,
         previous_moves: List[Waypoint] = []) -> int:
@@ -32,23 +39,32 @@ def calculate_path_cost(m: Map, player_i: int, path: List[Waypoint], d: int,
                 player_rr, init_rr, est_rate, doubleFees)[0][player_i]
         else:
             # Simulate N_SIM rolls to determine the average cost
-            for _ in range(N_PATH_ROLL_SIM):
-                rem_path = path[d:]
-                my_est_rate = est_rate
-                my_init_rr = path[d - 1][0]
-                while len(rem_path) > 0:
-                    new_d = sim_roll()
-                    seg_path = rem_path[:new_d]
-                    fees, my_est_rate = calculate_user_fees(
-                        m, player_i, seg_path, 
-                        player_rr, my_init_rr, my_est_rate, doubleFees)
-                    average_cost += fees[player_i]
-                    rem_path = rem_path[new_d:]
-                    my_init_rr = seg_path[-1][0]
-            average_cost = average_cost // N_PATH_ROLL_SIM
+            sim_costs = simulate_rolls(m, e, player_i, path[d:], N_PATH_ROLL_SIM, 
+                player_rr, doubleFees, path[d-1][0], est_rate)
+            average_cost = sum(sim_costs) // N_PATH_ROLL_SIM
     
     return fixed_cost + average_cost
 
+# Given a fixed path, simulate N traversals of the path (corresponding to random
+# die rolls for distance) and return the costs by scenario
+def simulate_rolls(m: Map, e: Engine, player_i: int, path: List[Waypoint], N: int,
+        player_rr: List[List[str]], doubleFees: bool, 
+        init_rr: str|None, established_rate: int|None) -> List[int]:
+    cost_by_path: List[int] = [0] * N
+    for sim_n in range(N):
+        rem_path = path.copy()
+        while len(rem_path) > 0:
+            new_d = sim_roll(e)
+            seg_path = rem_path[:new_d]
+            fees, established_rate = calculate_user_fees(
+                m, player_i, seg_path, 
+                player_rr, init_rr, established_rate, doubleFees)
+            rem_path = rem_path[new_d:]
+            init_rr = seg_path[-1][0]
+            cost_by_path[sim_n] += fees[player_i]
+    return cost_by_path
+
+# Reduce a collection of paths to below size N
 def reduce_paths(paths: List[List[Waypoint]], N: int,
     history: List[Waypoint] = []) -> List[List[Waypoint]]:
     if len(paths) <= N:
@@ -103,8 +119,9 @@ def plan_best_moves(
     player_rr = [p.rr_owned for p in s.players]
     doubleFees = s.doubleFees
     def path_cost(path: List[Waypoint]):
-        return calculate_path_cost(s.map, player_i, path, d, player_rr,
-            init_rr, ps.established_rate, doubleFees, previous_moves)    
+        return calculate_path_cost(s.map, ps.engine, player_i, path, 
+            d, player_rr, init_rr, ps.established_rate, 
+            doubleFees, previous_moves)    
 
     start_pt = ps.location if len(forced_moves) == 0 else forced_moves[-1][1]
     d -= len(forced_moves)
@@ -128,3 +145,51 @@ def plan_best_moves(
             break
 
     return final_path
+
+def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[List[str]],
+        init_rr: str|None, established_rate: int, doubleFees: bool,
+        n_dest: int, n_rolls_per_dest: int,
+        rr_paths_path: Path = DEFAULT_PATHS_FILE) -> List[int]:
+    print('  AI >> Estimating average trip cost for ' + 
+        f'{s.players[player_i].name} from {s.map.points[start_pt].display_name}')
+    paths: List[List[Waypoint]] = []
+    with rr_paths_path.open('r') as rr_paths_file:
+        rdr = csv.reader(rr_paths_file)
+        for row in rdr:
+            row_N = len(row) - 2
+            if int(row[0]) == start_pt:
+                path = [(row[2*i + 2], int(row[2*i + 3])) for i in range(row_N // 2)]
+                paths.append(path)
+            elif int(row[1]) == start_pt:
+                path = [(row[-2*i-1], int(row[-2*i-2])) for i in range((row_N-1)//2)]
+                path.append((row[2], int(row[0])))
+                paths.append(path)
+    print(f'  AI >> Found {len(paths)} paths')
+
+    best_paths: Dict[int, List[Waypoint]] = {}
+    def get_best_path(end_pt: int) -> List[Waypoint]:
+        if end_pt not in best_paths:
+            best_path: List[Waypoint] = []
+            min_cost: int = -1
+            for path in paths:
+                if path[-1][1] != end_pt:
+                    continue
+                cost = calculate_path_cost(s.map, s.players[player_i].engine, 
+                    player_i, path, 0, player_rr, 
+                    init_rr, established_rate, doubleFees)
+                if min_cost < 0 or cost < min_cost:
+                    best_path = path
+                    min_cost = cost
+            best_paths[end_pt] = best_path
+        return best_paths[end_pt]
+
+    sim_costs: List[int] = []
+    for _ in range(n_dest):
+        dest_region = s.random_lookup('REGION')
+        while dest_region == s.map.points[start_pt].region:
+            dest_region = s.random_lookup('REGION')
+        _, dest_pt = s.map.lookup_city(s.random_lookup(dest_region))
+        sim_costs += simulate_rolls(s.map, s.players[player_i].engine, 
+            player_i, get_best_path(dest_pt), n_rolls_per_dest,
+            player_rr, doubleFees, init_rr, established_rate)
+    return list(sorted(sim_costs))

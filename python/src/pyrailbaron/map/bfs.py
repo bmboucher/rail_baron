@@ -1,7 +1,11 @@
 from pyrailbaron.map.datamodel import (
-    Map, Waypoint, RailSegment, make_rail_seg, rail_segs_from_wps )
+    Map, Waypoint, RailSegment, read_map,
+    get_valid_waypoints, make_rail_seg, rail_segs_from_wps )
 from collections import deque
-from typing import List, Set, Deque
+from typing import List, Set, Deque, Tuple, Dict
+from time import time
+from datetime import timedelta
+from pathlib import Path
 
 # Returns the list of shortest paths from pt_from to pt_to
 def breadth_first_search(
@@ -46,3 +50,92 @@ def breadth_first_search(
         # Mark the end of this path as searched
         pts_searched.add(end_pt)
     return shortest_paths
+
+def search_all_paths(m: Map, start_pt: int, skip_cities: List[int] = []) -> Dict[int, List[List[Waypoint]]]:
+    search_paths: Deque[List[Waypoint]] = deque()
+    for wp in get_valid_waypoints(m, start_pt):
+        search_paths.append([wp])
+
+    def count_transitions(p: List[Waypoint]) -> int:
+        return sum(1 if p[i][0] != p[i - 1][0] else 0 
+                   for i in range(1, len(p)))
+
+    MAX_IN_QUEUE = 50000
+    KeyType = Tuple[int, str] # Found paths are indexed by end pt, rrs used
+    found_paths: Dict[KeyType, List[Waypoint]] = {}
+    start_t = time()
+    min_paths_by_city: Dict[int, int] = {}
+    while len(search_paths) > 0:
+        base_path = search_paths.popleft()
+        rail_segs_used = rail_segs_from_wps(start_pt, base_path)
+        end_pt = base_path[-1][1]
+
+        if end_pt in skip_cities:
+            continue
+
+        if len(m.points[end_pt].city_names) > 0:
+            t_el = timedelta(seconds=int(time() - start_t))
+            rrs_used: str = ",".join(list(sorted(set(rr for rr, _ in base_path))))
+            
+            if end_pt not in min_paths_by_city:
+                min_paths_by_city[end_pt] = len(base_path)
+            elif len(base_path) >= min_paths_by_city[end_pt] + 6:
+                continue
+            else:
+                min_paths_by_city[end_pt] = min(
+                    min_paths_by_city[end_pt], len(base_path))
+
+            key = (end_pt, rrs_used)
+            if key not in found_paths:
+                print(f'[{t_el}] Found first path from {m.points[start_pt].display_name} to {m.points[end_pt].display_name} - {rrs_used}')
+                found_paths[key] = base_path
+            else:
+                curr_path = found_paths[key]
+                if len(base_path) < len(curr_path) or (
+                    len(base_path) == len(curr_path) and 
+                    count_transitions(base_path) < count_transitions(curr_path)):
+                    print(f'[{t_el}] Overwriting path from {m.points[start_pt].display_name} to {m.points[end_pt].display_name} - {rrs_used}')
+                    found_paths[key] = base_path
+
+        pts_traveled = [start_pt] + [p for _,p in base_path]
+        curr_rr = base_path[-1][0]
+        rr_pref = [curr_rr] + list(sorted(set(rr for rr,_ in base_path if rr != curr_rr)))
+        rr_pref += list(sorted(set(rr for rr in m.points[end_pt].connections if rr not in rr_pref)))
+        for rr in rr_pref:
+            conn_pts = m.points[end_pt].connections.get(rr, [])
+            for next_pt in conn_pts:
+                rs = make_rail_seg(rr, end_pt, next_pt)
+                if next_pt not in pts_traveled and rs not in rail_segs_used and len(search_paths) < MAX_IN_QUEUE:
+                    search_paths.append(base_path + [(rr, next_pt)])
+    cities = [pt.index for pt in m.points if len(pt.city_names) > 0]
+    return dict((c, [p for k,p in found_paths.items() if k[0] == c]) for c in cities)
+
+DEFAULT_PATHS_FILE = (Path(__file__) / '../../../../../output/rr_paths.csv').resolve()
+
+def write_all_paths(m: Map, output_path: Path = DEFAULT_PATHS_FILE):
+    cities = [pt.index for pt in m.points if len(pt.city_names) > 0]
+
+    total_paths = 0
+    t_start = time()
+
+    for start_pt in cities:
+        print(f'Mapping all routes from {m.points[start_pt].display_name}')
+        all_routes = search_all_paths(m, start_pt)
+        for city, city_routes in all_routes.items():
+            if city <= start_pt:
+                continue
+            total_paths += len(city_routes)
+            with output_path.open('a') as output_file:
+                for route in city_routes:
+                    output_file.write(f'{start_pt},{city},{",".join(rr+","+str(p) for rr,p in route)}\n')                
+            if len(city_routes) > 0:
+                shortest = min(len(p) for p in city_routes)
+                longest = max(len(p) for p in city_routes)
+                print(f'{len(city_routes)} paths from {m.points[start_pt].display_name} to {m.points[city].display_name} (between {shortest} and {longest})')
+            else:
+                print(f'NO PATHS TO {m.points[city].display_name}')
+    print(f'{total_paths} TOTAL PATHS FOUND IN {time() - t_start} SECONDS')
+
+if __name__ == '__main__':
+    m = read_map()
+    write_all_paths(m)

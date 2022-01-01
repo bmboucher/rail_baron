@@ -21,7 +21,7 @@ def run_game(n_players: int, i: Interface):
 
         # Roll for destination if needed
         check_destination(s, i, player_i)
-        if check_for_winner(s, i, player_i):
+        if ps.winner:
             break
 
         # Record initial RR for user fee calculation later
@@ -31,7 +31,8 @@ def run_game(n_players: int, i: Interface):
         d1,d2 = i.roll_for_distance(s, player_i)
         # Need to check for bonus roll before move in case we buy an engine
         do_bonus = ps.check_bonus_roll(d1, d2)
-        waypoints = do_move(s, i, player_i, d1 + d2, init_rr, 0)
+        waypoints = do_move(s, i, player_i, d1 + d2, init_rr, 0, 
+            is_last_move=not do_bonus)
 
         # Make a bonus roll and move if possible
         if do_bonus:
@@ -43,13 +44,10 @@ def run_game(n_players: int, i: Interface):
             check_destination(s, i, player_i)
 
             waypoints += do_move(s, i, player_i, i.bonus_roll(s, player_i),
-                init_rr, len(waypoints))
-
-        # Pay the bank and/or other players for use of rails
-        charge_user_fees(s, i, player_i, waypoints, init_rr)
+                init_rr, len(waypoints), is_last_move=True)
 
         # Collect payoff and/or win
-        if check_for_winner(s,i, player_i):
+        if ps.winner:
             break
 
         # Move to the next player
@@ -106,7 +104,8 @@ def update_balances(s: GameState, i: Interface, bank_deltas: List[int],
 
 # During this step the user selects their moves for either the initial roll
 # or the bonus roll; we don't collect user fees until both moves are done
-def do_move(s: GameState, i: Interface, player_i: int, d: int, init_rr: str | None, moves_so_far: int) -> List[Waypoint]:
+def do_move(s: GameState, i: Interface, player_i: int, d: int, init_rr: str | None, moves_so_far: int,
+        is_last_move: bool) -> List[Waypoint]:
     # Ask user for RRs and points to move through
     waypoints = i.get_player_move(s, player_i, d, init_rr, moves_so_far)
     assert len(waypoints) <= d, "Can't move more than the number of allocated spaces"
@@ -131,8 +130,20 @@ def do_move(s: GameState, i: Interface, player_i: int, d: int, init_rr: str | No
 
             other_ps.declared = False
 
+    bank_deltas = [0] * len(s.players)
+    if is_last_move:
+        # We need to pay user fees AFTER payoff/purchase, but we'd like to know
+        # what they will be when we do make a purchase decision. So, we calculate
+        # and store and eventually pass the user fee to i.get_purchase
+        history = [] if moves_so_far <= 0 else s.players[player_i].history[-moves_so_far:]
+        bank_deltas = calc_turn_user_fees(s, player_i, history + waypoints, init_rr)
+
     # Check if player_i has reached destination for payoff/purchasing
-    check_arrival(s, i, player_i)
+    check_arrival(s, i, player_i, bank_deltas[player_i])
+
+    if is_last_move:
+        # Do user fee transaction
+        update_balances(s, i, bank_deltas, allow_selling=True)
 
     return waypoints
 
@@ -213,14 +224,14 @@ def auction(s: GameState, i: Interface, seller_i: int, rr_to_sell: str, min_sell
 
 # After all moves are completed on a player's turn, calculate the total charges
 # to the bank and/or other players for rails used
-def charge_user_fees(s: GameState, i: Interface, player_i: int, 
-        waypoints: List[Waypoint], init_rr: str | None = None):
+def calc_turn_user_fees(s: GameState, player_i: int, 
+        waypoints: List[Waypoint], init_rr: str | None = None) -> List[int]:
     ps = s.players[player_i]
     player_rr = [p.rr_owned for p in s.players]
     bank_deltas, ps.established_rate = calculate_user_fees(
         s.map, player_i, waypoints, player_rr,
         init_rr, ps.established_rate, s.doubleFees)
-    update_balances(s, i, bank_deltas, allow_selling=True)
+    return bank_deltas
 
 def check_destination(s: GameState, i: Interface, player_i: int) -> None:
     ps = s.players[player_i]
@@ -235,7 +246,7 @@ def check_destination(s: GameState, i: Interface, player_i: int) -> None:
     if needs_destination:
         s.set_player_destination(player_i, i.get_destination(s, player_i))
 
-def check_arrival(s: GameState, i: Interface, player_i: int):
+def check_arrival(s: GameState, i: Interface, player_i: int, user_fee: int):
     ps = s.players[player_i]
     if ps.declared or not ps.atDestination:
         # Haven't arrived yet
@@ -252,7 +263,7 @@ def check_arrival(s: GameState, i: Interface, player_i: int):
     update_balances(s, i, bank_deltas)
 
     # Allow player to purchase an engine or railroad
-    do_purchase(s, i, player_i)
+    do_purchase(s, i, player_i, user_fee)
     
 # Check if player_i meets the win condition
 def check_for_winner(s: GameState, i: Interface, player_i: int) -> bool:
@@ -260,9 +271,9 @@ def check_for_winner(s: GameState, i: Interface, player_i: int) -> bool:
     return ps.declared and ps.atHomeCity and ps.bank >= MIN_CASH_TO_WIN
 
 # Purchase an engine or railroad after a payoff
-def do_purchase(s: GameState, i: Interface, player_i: int):
+def do_purchase(s: GameState, i: Interface, player_i: int, user_fee: int):
     ps = s.players[player_i]
-    purchase = i.get_purchase(s, player_i)
+    purchase = i.get_purchase(s, player_i, user_fee)
     if purchase is None:
         return # Player may not have enough funds, or may wish to skip purchase
 

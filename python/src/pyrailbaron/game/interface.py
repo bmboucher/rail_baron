@@ -81,7 +81,7 @@ class Interface(ABC):
 
     # Select engine/rail line to purchase
     @abstractmethod
-    def get_purchase(self, s: GameState, player_i: int) -> Optional[str]:
+    def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> Optional[str]:
         pass
 
     # Ask a player whether they want to declare before setting alternate destination
