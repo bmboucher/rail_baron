@@ -2,7 +2,7 @@ from pyrailbaron.game.state import Engine, GameState
 from pyrailbaron.map.datamodel import Map, Waypoint, rail_segs_from_wps
 from pyrailbaron.map.bfs import breadth_first_search, DEFAULT_PATHS_FILE
 from pyrailbaron.game.fees import calculate_user_fees
-from typing import List, Optional, Callable, Dict
+from typing import List, Optional, Callable, Dict, Tuple
 from random import randint, sample
 from pathlib import Path
 import csv
@@ -26,7 +26,7 @@ def calculate_path_cost(m: Map, e: Engine,
         player_i: int, path: List[Waypoint], d: int,
         player_rr: List[List[str]], init_rr: str | None, 
         established_rate: int | None, doubleFees: bool,
-        previous_moves: List[Waypoint] = []) -> int:
+        previous_moves: List[Waypoint] = [], N: int = N_PATH_ROLL_SIM) -> int:
     fixed_fees, est_rate = calculate_user_fees(
         m, player_i, previous_moves + path[:d], player_rr, 
         init_rr, established_rate, doubleFees)
@@ -39,9 +39,9 @@ def calculate_path_cost(m: Map, e: Engine,
                 player_rr, init_rr, est_rate, doubleFees)[0][player_i]
         else:
             # Simulate N_SIM rolls to determine the average cost
-            sim_costs = simulate_rolls(m, e, player_i, path[d:], N_PATH_ROLL_SIM, 
+            sim_costs = simulate_rolls(m, e, player_i, path[d:], N, 
                 player_rr, doubleFees, path[d-1][0], est_rate)
-            average_cost = sum(sim_costs) // N_PATH_ROLL_SIM
+            average_cost = sum(sim_costs) // N
     
     return fixed_cost + average_cost
 
@@ -146,25 +146,39 @@ def plan_best_moves(
 
     return final_path
 
-def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[List[str]],
-        init_rr: str|None, established_rate: int, doubleFees: bool,
-        n_dest: int, n_rolls_per_dest: int,
-        rr_paths_path: Path = DEFAULT_PATHS_FILE) -> List[int]:
-    print('  AI >> Estimating average trip cost for ' + 
-        f'{s.players[player_i].name} from {s.map.points[start_pt].display_name}')
+def get_paths_from_pt(start_pt: int,
+        rr_paths_path: Path = DEFAULT_PATHS_FILE) -> List[List[Waypoint]]:
     paths: List[List[Waypoint]] = []
+    counts_by_city: Dict[int, int] = {}
     with rr_paths_path.open('r') as rr_paths_file:
         rdr = csv.reader(rr_paths_file)
         for row in rdr:
             row_N = len(row) - 2
+            if int(row[0]) != start_pt and int(row[1]) != start_pt:
+                continue
+            dest_pt = int(row[1]) if int(row[0]) == start_pt else int(row[0])
+            if dest_pt not in counts_by_city:
+                counts_by_city[dest_pt] = 1
+            else:
+                if counts_by_city[dest_pt] >= 20:
+                    continue
+                counts_by_city[dest_pt] += 1
+
             if int(row[0]) == start_pt:
                 path = [(row[2*i + 2], int(row[2*i + 3])) for i in range(row_N // 2)]
                 paths.append(path)
             elif int(row[1]) == start_pt:
-                path = [(row[-2*i-1], int(row[-2*i-2])) for i in range((row_N-1)//2)]
+                path = [(row[-2*i-2], int(row[-2*i-3])) for i in range((row_N-1)//2)]
                 path.append((row[2], int(row[0])))
                 paths.append(path)
-    print(f'  AI >> Found {len(paths)} paths')
+    return paths
+
+def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[List[str]],
+        init_rr: str|None, established_rate: int|None, doubleFees: bool,
+        n_dest: int, n_rolls_per_dest: int, override_engine: Engine|None = None,
+        paths: List[List[Waypoint]]|None = None,
+        rr_paths_path: Path = DEFAULT_PATHS_FILE) -> List[int]:
+    paths = paths or get_paths_from_pt(start_pt, rr_paths_path)
 
     best_paths: Dict[int, List[Waypoint]] = {}
     def get_best_path(end_pt: int) -> List[Waypoint]:
@@ -174,9 +188,10 @@ def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[L
             for path in paths:
                 if path[-1][1] != end_pt:
                     continue
-                cost = calculate_path_cost(s.map, s.players[player_i].engine, 
+                cost = calculate_path_cost(s.map, 
+                    override_engine or s.players[player_i].engine, 
                     player_i, path, 0, player_rr, 
-                    init_rr, established_rate, doubleFees)
+                    init_rr, established_rate, doubleFees, N=10)
                 if min_cost < 0 or cost < min_cost:
                     best_path = path
                     min_cost = cost
@@ -193,3 +208,105 @@ def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[L
             player_i, get_best_path(dest_pt), n_rolls_per_dest,
             player_rr, doubleFees, init_rr, established_rate)
     return list(sorted(sim_costs))
+
+def select_purchase_options(s: GameState, player_i: int, user_fee: int) -> str|None:
+    ps = s.players[player_i]
+    # We only consider options which leave us with > 0 balance after paying user fees
+    raw_opts = s.get_player_purchase_opts(player_i)
+    if len(raw_opts) == 0:
+        return None
+
+    # First, we filter out the options we "can't" purchase because they put
+    # us at too much risk of going negative. This may require simulating future
+    # trips from our current location assuming each purchase.
+    N_DEST = 200             # Number of random destinations
+    N_ROLL_PER_DEST = 10    # Number of rolls to simulate for each destination
+    # The total number of "scenarios" is N_DEST * N_ROLL_PER_DEST
+    CRIT_PCT = 0.05          # Critical percentile of costs (i.e. we must be able to pay them 1-CRIT_PCT of the time)
+    MIN_SIM_THRESHOLD = 50000 # Don't simulate trips if we can spare at least this much
+    MIN_BAL = 5000           # Don't let the expected ending balance go below this
+    filtered_opts: List[Tuple[str, int]] = []
+    base_player_rr = [p.rr_owned for p in s.players]
+
+    paths: List[List[Waypoint]] | None = None
+
+    has_engine: bool = False
+    for opt, price in raw_opts:
+        # If we'll go below MIN_BAL after user fees, definitely omit
+        if ps.bank - price + user_fee <= MIN_BAL:
+            continue
+
+        # If we have a lot in the bank, no need to simulate
+        if ps.bank - price + user_fee > MIN_SIM_THRESHOLD + MIN_BAL:
+            filtered_opts.append((opt, price))
+            continue
+
+        if not paths:
+            paths = get_paths_from_pt(ps.location)
+
+        # Generate the simulated distribution assuming this purchase
+        if opt in [Engine.Express.name, Engine.Superchief.name]:
+            sim_costs = simulate_costs(s, player_i, ps.location,
+                base_player_rr, ps.rr, ps.established_rate, s.doubleFees,
+                N_DEST, N_ROLL_PER_DEST, 
+                override_engine=(Engine.Express if opt == Engine.Express.name 
+                    else Engine.Superchief), paths=paths)
+        elif has_engine:
+            continue
+        else:
+            adj_player_rr = [rr_owned.copy() for rr_owned in base_player_rr]
+            adj_player_rr[player_i].append(opt)
+            sim_costs = simulate_costs(s, player_i, ps.location,
+                adj_player_rr, ps.rr, ps.established_rate, s.doubleFees, 
+                N_DEST, N_ROLL_PER_DEST, paths=paths)
+        next_trip_cost = sim_costs[int(CRIT_PCT * N_DEST * N_ROLL_PER_DEST)]
+        est_bal = ps.bank - price + user_fee + next_trip_cost
+        print(f'  AI >> Est balance after buying {opt} = {ps.bank} - {price} - {-user_fee} - {-next_trip_cost} = {est_bal}')
+        if est_bal > MIN_BAL:
+            if opt in [Engine.Express.name, Engine.Superchief.name]:
+                has_engine = True
+            filtered_opts.append((opt, price))
+        else:
+            print(f'  AI >> DROPPING {opt}')
+
+    # If no options remain, do nothing
+    if len(filtered_opts) == 0:
+        return None
+    # If only one option remains, do that without scoring
+    if len(filtered_opts) == 1:
+        return filtered_opts[0][0]
+    # Always buy the largest engine possible if it's an option
+    if any(o == Engine.Superchief.name for o,_ in filtered_opts):
+        return Engine.Superchief.name
+    elif any(o == Engine.Express.name for o,_ in filtered_opts):
+        return Engine.Express.name
+
+    best_rr: str|None = None
+    best_score: int|None = None
+    SCORE_PER_FREE_PT = 200
+    SCORE_PER_LOCKED_PT = 150
+    for opt, price in filtered_opts:
+        score = -price
+        for p in s.map.points:
+            rrs = set(p.connections.keys())
+            if opt not in rrs:
+                continue
+            if not any(rr in base_player_rr[player_i] for rr in rrs):
+                score += SCORE_PER_FREE_PT
+            rrs.remove(opt)
+            locked_out = [True] * len(s.players)
+            locked_out[player_i] = False
+            for player_j, oth_rr_owned in enumerate(base_player_rr):
+                if player_i == player_j:
+                    continue
+                for rr in oth_rr_owned:
+                    if rr in rrs:
+                        locked_out[player_j] = False
+                        rrs.remove(rr)
+            if len(rrs) == 0:
+                score += sum(SCORE_PER_LOCKED_PT if l else 0 for l in locked_out)
+        print(f'  AI >> SCORING {opt} = {score}')
+        if not best_score or score > best_score:
+            best_score = score
+            best_rr = opt
+    return best_rr

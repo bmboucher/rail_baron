@@ -4,7 +4,7 @@ from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.state import GameState, Waypoint
 from pyrailbaron.game.moves import calculate_legal_moves
 from pyrailbaron.game.logic import run_game
-from pyrailbaron.game.ai import plan_best_moves
+from pyrailbaron.game.ai import plan_best_moves, select_purchase_options
 
 from random import randint
 from typing import Tuple, List, Dict, Optional
@@ -122,7 +122,7 @@ class CLI_Interface(Interface):
                 
                 # Continue on to our proper destination if possible
                 if (len(moves) <= d and dest_pt != ps.destinationIndex
-                        and moves[-1][1] != ps.destinationIndex):
+                        and moves[-1][1] == dest_pt):
                     moves = plan_best_moves(s, player_i, d, init_rr,
                         moves_so_far, forced_moves=moves, path_length_flex=2)
             else:
@@ -209,6 +209,11 @@ class CLI_Interface(Interface):
         print(f'{s.players[seller_i].name} SELLS {rr} TO THE BANK FOR {price}')
 
     def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> Optional[str]:
+        if self.auto_move:
+            best_opt = select_purchase_options(s, player_i, user_fee)
+            #input(f'CONFIRM {best_opt} > ')
+            return best_opt
+
         options: List[Tuple[str, int]] = s.get_player_purchase_opts(player_i)
         if len(options) == 0:
             return None

@@ -92,7 +92,7 @@ class PlayerState:
 
     def move(self, waypoints: List[Waypoint]):
         assert len(waypoints) > 0, "Move must contain at least one waypoint"
-        assert all(pt_i != self._destinationIndex for _, pt_i 
+        assert all(pt_i != self.destinationIndex for _, pt_i 
             in waypoints[:-1]), "The destination can only be the last waypoint"
         self.rr = waypoints[-1][0] # Store last RR visited
         self.history += waypoints
