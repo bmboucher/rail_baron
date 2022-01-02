@@ -37,11 +37,15 @@ def run_game(n_players: int, i: Interface):
         # Make a bonus roll and move if possible
         if do_bonus:
             # The first move could land in the home city for the win
-            if check_for_winner(s, i, player_i):
+            if ps.winner:
                 break
 
             # We may need a new destination
             check_destination(s, i, player_i)
+
+            # We might have declared and already be in the home city
+            if ps.winner:
+                break
 
             waypoints += do_move(s, i, player_i, i.bonus_roll(s, player_i),
                 init_rr, len(waypoints), is_last_move=True)

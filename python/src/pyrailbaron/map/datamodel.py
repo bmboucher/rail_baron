@@ -110,7 +110,8 @@ def rail_segs_from_wps(start_pt: int, wp: List[Waypoint]) -> List[RailSegment]:
     curr_pt = start_pt
     rail_segs: List[RailSegment] = []
     for rr, next_pt in wp:
-        rail_segs.append(make_rail_seg(rr, curr_pt, next_pt)); next_pt = curr_pt
+        assert curr_pt != next_pt, f"Invalid history {wp} from {start_pt} -> duplicate {curr_pt}"
+        rail_segs.append(make_rail_seg(rr, curr_pt, next_pt)); curr_pt = next_pt
     return rail_segs
 
 def get_valid_waypoints(m: Map, pt_i: int, 

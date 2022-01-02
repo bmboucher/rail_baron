@@ -4,7 +4,7 @@ from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.state import GameState, Waypoint
 from pyrailbaron.game.moves import calculate_legal_moves
 from pyrailbaron.game.logic import run_game
-from pyrailbaron.game.ai import plan_best_moves, select_purchase_options
+from pyrailbaron.game.ai import plan_best_moves, recommend_declare, select_purchase_options
 
 from random import randint
 from typing import Tuple, List, Dict, Optional
@@ -40,6 +40,9 @@ class CLI_Interface(Interface):
         self.turn_count = 0
 
     def get_player_name(self, player_i: int) -> str:
+        if self.auto_move:
+            return f'CPU{player_i + 1}'
+
         return input(f'Player {player_i + 1} name: ')
 
     def get_home_city(self, s: GameState, player_i: int) -> str:
@@ -92,9 +95,8 @@ class CLI_Interface(Interface):
         ps = s.players[player_i]
         print(f'{ps.name} >> MOVE {d} SPACES')
         print(f'  Current location: {s.map.points[ps.location].display_name}')
-        dest_i = ps._destinationIndex if not ps.declared else ps._homeCityIndex
+        dest_i = ps.destinationIndex
         print(f'  Destination: {((ps.destination if not ps.declared else ps.homeCity) or "").replace("_","")}, {s.map.points[dest_i].state}\n')
-        waypoints: List[Waypoint] = []
         def move_str(wp: Waypoint):
             rr, pt_i = wp
             rr_name = s.map.railroads[rr].shortName
@@ -132,6 +134,7 @@ class CLI_Interface(Interface):
                 print(f'  AI >> {move_str(wp)}')
             return moves
 
+        waypoints: List[Waypoint] = []
         curr_pt = ps.location
         for _ in range(d):           
             moves = calculate_legal_moves(s.map, ps._startCityIndex, 
@@ -178,6 +181,17 @@ class CLI_Interface(Interface):
         ps = s.players[player_i]
         assert len(ps.rr_owned) > 0, "Can't ask to sell RRs when none owned"
         print(f'{ps.name} >> SELECT A RAILROAD TO SELL')
+        if self.auto_move:
+            most_expensive: str | None = None
+            highest_price: int | None = None
+            for rr in ps.rr_owned:
+                price = s.map.railroads[rr].cost
+                if not highest_price or price > highest_price:
+                    most_expensive = rr; highest_price = price
+            assert most_expensive, "Should find at least one RR to sell"
+            print(f'  AI >> Selling {most_expensive} (MOST EXPENSIVE)')
+            return most_expensive
+
         for i,rr in enumerate(ps.rr_owned):
             rr_data = s.map.railroads[rr]
             print(f'  [{i}] {rr_data.shortName} (COST = {rr_data.cost})')
@@ -189,6 +203,10 @@ class CLI_Interface(Interface):
         print(f'  {len(ps.history)} stops, payoff = {amt}')
 
     def ask_to_auction(self, s: GameState, player_i: int, rr_to_sell: str) -> bool:
+        if self.auto_move:
+            print('  AI >> Sell immediately to bank')
+            return False
+
         print('Choose...')
         print('  [A] Auction to other players')
         print('  [S] Sell immediately to bank')
@@ -209,16 +227,17 @@ class CLI_Interface(Interface):
         print(f'{s.players[seller_i].name} SELLS {rr} TO THE BANK FOR {price}')
 
     def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> Optional[str]:
-        if self.auto_move:
-            best_opt = select_purchase_options(s, player_i, user_fee)
-            #input(f'CONFIRM {best_opt} > ')
-            return best_opt
-
-        options: List[Tuple[str, int]] = s.get_player_purchase_opts(player_i)
-        if len(options) == 0:
-            return None
         ps = s.players[player_i]
         print(f'{ps.name} >>> SELECT PURCHASE ({ps.bank + user_fee} AVAILABLE)')
+        options: List[Tuple[str, int]] = s.get_player_purchase_opts(player_i)
+        if len(options) == 0:
+            print('  NO OPTIONS')
+            return None
+        if self.auto_move:
+            best_opt = select_purchase_options(s, player_i, user_fee)
+            print(f'  AI >> {best_opt or "Buy nothing"}')
+            return best_opt
+
         print('  [ 0] NONE')
         options = list(sorted(options, key = lambda op: op[1]))
         for opt_i, (opt, p) in enumerate(options):
@@ -237,6 +256,9 @@ class CLI_Interface(Interface):
         ps = s.players[player_i]
         print(f'{ps.name} >>> DO YOU WANT TO DECLARE?')
         print(f'You currently have {ps.bank} - you will need to return to {ps.homeCity} with {MIN_CASH_TO_WIN} to win')
+        if self.auto_move:
+            return recommend_declare(s, player_i)
+
         return input('Declare for your trip home (Y/N)? ').upper().strip() == 'Y'
 
     def announce_undeclared(self, s: GameState, player_i: int):
@@ -259,5 +281,6 @@ class CLI_Interface(Interface):
             print(f'{p.name:14} {p.bank:6} {len(p.rr_owned):5}')
 
 if __name__ == '__main__':
-    i = CLI_Interface(auto_move=True)
-    run_game(4,i)
+    for _ in range(100):
+        i = CLI_Interface(auto_move=True)
+        run_game(4,i)

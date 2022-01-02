@@ -1,3 +1,4 @@
+from pyrailbaron.game.constants import MIN_CASH_TO_WIN
 from pyrailbaron.game.state import Engine, GameState
 from pyrailbaron.map.datamodel import Map, Waypoint, rail_segs_from_wps
 from pyrailbaron.map.bfs import breadth_first_search, DEFAULT_PATHS_FILE
@@ -130,6 +131,7 @@ def plan_best_moves(
         s.map, start_pt, dest_pt, used_rail_segs, path_length_flex)
     print(f'  AI >> Found {len(shortest_paths)} paths')
 
+    assert len(shortest_paths) > 0, "Must have at least one path to goal"
     if len(shortest_paths) > MAX_PATHS:
         shortest_paths = reduce_paths(shortest_paths, MAX_PATHS, ps.history)
         print(f'  AI >> Reduced to {len(shortest_paths)} paths')
@@ -177,7 +179,7 @@ def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[L
         init_rr: str|None, established_rate: int|None, doubleFees: bool,
         n_dest: int, n_rolls_per_dest: int, override_engine: Engine|None = None,
         paths: List[List[Waypoint]]|None = None,
-        rr_paths_path: Path = DEFAULT_PATHS_FILE) -> List[int]:
+        rr_paths_path: Path = DEFAULT_PATHS_FILE, dest_pt: int|None = None) -> List[int]:
     paths = paths or get_paths_from_pt(start_pt, rr_paths_path)
 
     best_paths: Dict[int, List[Waypoint]] = {}
@@ -200,10 +202,11 @@ def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[L
 
     sim_costs: List[int] = []
     for _ in range(n_dest):
-        dest_region = s.random_lookup('REGION')
-        while dest_region == s.map.points[start_pt].region:
+        if not dest_pt:
             dest_region = s.random_lookup('REGION')
-        _, dest_pt = s.map.lookup_city(s.random_lookup(dest_region))
+            while dest_region == s.map.points[start_pt].region:
+                dest_region = s.random_lookup('REGION')
+            _, dest_pt = s.map.lookup_city(s.random_lookup(dest_region))
         sim_costs += simulate_rolls(s.map, s.players[player_i].engine, 
             player_i, get_best_path(dest_pt), n_rolls_per_dest,
             player_rr, doubleFees, init_rr, established_rate)
@@ -310,3 +313,17 @@ def select_purchase_options(s: GameState, player_i: int, user_fee: int) -> str|N
             best_score = score
             best_rr = opt
     return best_rr
+
+MIN_DECLARE_SIM_THRESH = MIN_CASH_TO_WIN * 5 // 4
+def recommend_declare(s: GameState, player_i: int) -> bool:
+    ps = s.players[player_i]
+    if ps.bank >= MIN_DECLARE_SIM_THRESH:
+        return True
+    player_rr = [p.rr_owned for p in s.players]
+    N_ROLL_SIM = 1000
+    CRIT_PCT = 0.10
+    sim_costs = simulate_costs(s, player_i, ps.location, player_rr,
+        ps.rr, ps.established_rate, s.doubleFees, 
+        1, N_ROLL_SIM, dest_pt=ps.homeCityIndex)
+    crit_cost = sim_costs[int(CRIT_PCT * N_ROLL_SIM)]
+    return ps.bank >= MIN_CASH_TO_WIN + crit_cost

@@ -46,12 +46,14 @@ class PlayerState:
         return self._destination
 
     @property
-    def destinationIndex(self) -> int:
-        return self._homeCityIndex if self.declared else self._destinationIndex
-
-    @property
     def startCityIndex(self) -> int:
         return self._startCityIndex
+    @property
+    def destinationIndex(self) -> int:
+        return self._homeCityIndex if self.declared else self._destinationIndex
+    @property
+    def homeCityIndex(self) -> int:
+        return self._homeCityIndex
 
     def _set_home_city(self, hc: str, hc_i: int):
         assert hc_i >= 0, "Cannot set negative _homeCityIndex"
