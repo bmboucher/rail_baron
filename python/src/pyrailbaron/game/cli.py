@@ -8,6 +8,7 @@ from pyrailbaron.game.ai import plan_best_moves, recommend_declare, select_purch
 
 from random import randint
 from typing import Tuple, List, Dict, Optional
+from pyrailbaron.map.bfs import quick_network_distance
 
 from pyrailbaron.map.datamodel import R_EARTH
 
@@ -103,9 +104,11 @@ class CLI_Interface(Interface):
             place_n = s.map.points[pt_i].display_name
             return f'Take the {rr_name} to {place_n}'
         
+        waypoints: List[Waypoint] = []
         if self.auto_move:
-            dest_pt = -1
+            rover_dest = -1
             min_dist = R_EARTH * 10
+            rover_tgt: str | None = None
             if not ps.declared:
                 # Undeclared players will check if other players are declared and
                 # attempt to rover them if possible
@@ -114,27 +117,44 @@ class CLI_Interface(Interface):
                         assert ps.index != oth_ps.index, "Players cannot rover themselves"
                         dist_to_declared = s.map.gc_distance(ps.location, oth_ps.location)
                         if dist_to_declared < min_dist:
-                            dest_pt = oth_ps.location
+                            rover_dest = oth_ps.location
+                            rover_tgt = oth_ps.name
                             min_dist = dist_to_declared
 
-            if dest_pt > 0:
-                # Try to do a rover play
-                moves = plan_best_moves(s, player_i, d, init_rr, moves_so_far, 
-                    dest_pt=dest_pt, path_length_flex=2) 
-                
-                # Continue on to our proper destination if possible
-                if (len(moves) <= d and dest_pt != ps.destinationIndex
-                        and moves[-1][1] == dest_pt):
-                    moves = plan_best_moves(s, player_i, d, init_rr,
-                        moves_so_far, forced_moves=moves, path_length_flex=2)
-            else:
-                moves = plan_best_moves(s, player_i, d, init_rr, moves_so_far,
-                    path_length_flex=2)
-            for wp in moves:
-                print(f'  AI >> {move_str(wp)}')
-            return moves
+            if rover_dest >= 0:
+                try:
+                    print(f'  AI >> Attempting to plan rover for {rover_tgt} at {s.map.points[rover_dest].display_name}')
+                    # Try to do a rover play
+                    waypoints = plan_best_moves(s, player_i, d, init_rr, moves_so_far, 
+                        dest_pt=rover_dest, path_length_flex=2) 
+                    
+                    print(f'  AI >> Verifying that rover still allows trip to {s.map.points[ps.destinationIndex].display_name}')
+                    # Check if we can still reach our "real" destination after the rover
+                    # If not we need to revert to normal planning
+                    rover_end_pt = waypoints[-1][1]
+                    if rover_end_pt != ps.destinationIndex:
+                        if quick_network_distance(s.map, rover_end_pt, ps.destinationIndex,
+                            ps.history + waypoints) < 0:
+                            print('  AI >> SKIPPING ROVER')
+                            rover_dest = -1
 
-        waypoints: List[Waypoint] = []
+                    # If we are still planning a rover, plan the remaining trip to the
+                    # destination after pulling the rover where needed
+                    if rover_dest > 0:
+                        if (len(waypoints) <= d and rover_dest != ps.destinationIndex
+                                and waypoints[-1][1] == rover_dest):
+                            waypoints = plan_best_moves(s, player_i, d, init_rr,
+                                moves_so_far, forced_moves=waypoints, path_length_flex=2)
+                except:
+                    print('  AI >> FAILED TO PLAN ROVER')
+                    rover_dest = -1
+            if rover_dest < 0:
+                waypoints = plan_best_moves(s, player_i, d, init_rr, moves_so_far,
+                    path_length_flex=2)
+            for wp in waypoints:
+                print(f'  AI >> {move_str(wp)}')
+            return waypoints
+
         curr_pt = ps.location
         for _ in range(d):           
             moves = calculate_legal_moves(s.map, ps._startCityIndex, 
@@ -197,10 +217,13 @@ class CLI_Interface(Interface):
             print(f'  [{i}] {rr_data.shortName} (COST = {rr_data.cost})')
         return ps.rr_owned[int(input('YOUR CHOICE >>> '))]
 
-    def announce_route_payoff(self, s: GameState, player_i: int, amt: int):
+    def announce_route_payoff(self, s: GameState, player_i: int, payoff: int):
         ps = s.players[player_i]
-        print(f'\n{ps.name} HAS COMPLETED {ps.startCity} TO {ps.destination}!')
-        print(f'  {len(ps.history)} stops, payoff = {amt}')
+        print(f'\n{ps.name} HAS COMPLETED {ps.startCity} - {ps.destination}!')
+        print(f'TRIP SUMMARY:')
+        print(f'  {len(ps.history)} stops, {ps.trip_turns} turns, {ps.trip_miles:.1f} miles')
+        print(f'  {ps.trip_fees_paid} fees paid, {ps.trip_fees_received} fees received')
+        print(f'  {payoff} payoff')
 
     def ask_to_auction(self, s: GameState, player_i: int, rr_to_sell: str) -> bool:
         if self.auto_move:
@@ -235,7 +258,6 @@ class CLI_Interface(Interface):
             return None
         if self.auto_move:
             best_opt = select_purchase_options(s, player_i, user_fee)
-            print(f'  AI >> {best_opt or "Buy nothing"}')
             return best_opt
 
         print('  [ 0] NONE')
@@ -276,11 +298,11 @@ class CLI_Interface(Interface):
         print(f'\n{s.players[winner_i].name} IS THE WINNER !!!!!')
         print(f'{self.turn_count} TURNS TOTAL')
         print('\nFINAL SUMMARY')
-        print('PLAYER           BANK   RRS')
+        print('PLAYER           BANK   RRS  TRIPS     PAID      REC    MILES  ROVERS')
         for p in s.players:
-            print(f'{p.name:14} {p.bank:6} {len(p.rr_owned):5}')
+            print(f'{p.name:14} {p.bank:6} {len(p.rr_owned):5} {p.trips_completed:6} {p.total_fees_paid:8} {p.total_fees_received:8} {p.total_miles:8.1f}   {p.rover_play_wins:2}/{p.rover_play_losses:2}')
 
 if __name__ == '__main__':
-    for _ in range(100):
+    while True:
         i = CLI_Interface(auto_move=True)
         run_game(4,i)

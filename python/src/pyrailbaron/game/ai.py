@@ -3,7 +3,7 @@ from pyrailbaron.game.state import Engine, GameState
 from pyrailbaron.map.datamodel import Map, Waypoint, rail_segs_from_wps
 from pyrailbaron.map.bfs import breadth_first_search, DEFAULT_PATHS_FILE
 from pyrailbaron.game.fees import calculate_user_fees
-from typing import List, Optional, Callable, Dict, Tuple
+from typing import List, Callable, Dict, Tuple
 from random import randint, sample
 from pathlib import Path
 import csv
@@ -109,8 +109,8 @@ def reduce_paths(paths: List[List[Waypoint]], N: int,
 # path_length_flex = used to allow path lengths longer than minimum to be checked
 def plan_best_moves(
         s: GameState, player_i: int, d: int,
-        init_rr: Optional[str] = None, moves_so_far: int = 0,
-        forced_moves: List[Waypoint] = [],
+        init_rr: str | None,
+        moves_so_far: int, forced_moves: List[Waypoint] = [],
         dest_pt: int = -1, path_length_flex: int = 0) -> List[Waypoint]:
     ps = s.players[player_i]
     dest_pt = ps.destinationIndex if dest_pt < 0 else dest_pt
@@ -129,7 +129,17 @@ def plan_best_moves(
     used_rail_segs = rail_segs_from_wps(ps.startCityIndex, ps.history + forced_moves)
     shortest_paths = breadth_first_search(
         s.map, start_pt, dest_pt, used_rail_segs, path_length_flex)
-    print(f'  AI >> Found {len(shortest_paths)} paths')
+    start_n = s.map.points[start_pt].display_name
+    end_n = s.map.points[dest_pt].display_name
+    print(f'  AI >> Found {len(shortest_paths)} paths from {start_n} to {end_n}')
+
+    if len(shortest_paths) == 0 and ps.rover_play_index >= 0:
+        rover_pt = ps.history[ps.rover_play_index][1]
+        print(f'  AI >> Replanning from rover move at {s.map.points[rover_pt].display_name} on')
+        # We remove rail segs we used up to the rover from the excluded set
+        used_rail_segs = rail_segs_from_wps(rover_pt, ps.history[ps.rover_play_index:])
+        shortest_paths = breadth_first_search(
+            s.map, start_pt, dest_pt, used_rail_segs, path_length_flex)
 
     assert len(shortest_paths) > 0, "Must have at least one path to goal"
     if len(shortest_paths) > MAX_PATHS:
@@ -138,7 +148,7 @@ def plan_best_moves(
 
     costs = list(map(path_cost, shortest_paths))
     best_path, cost = list(sorted(zip(shortest_paths, costs), key=lambda pair: -pair[1]))[0]
-    print(f'  AI >> Best path has length {len(best_path)} stops and cost {cost}')
+    print(f'  AI >> Best path has length {len(best_path)} stops and cost {-cost}')
 
     final_path: List[Waypoint] = []
     for rr, p in forced_moves + best_path[:d]:
@@ -179,10 +189,12 @@ def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[L
         init_rr: str|None, established_rate: int|None, doubleFees: bool,
         n_dest: int, n_rolls_per_dest: int, override_engine: Engine|None = None,
         paths: List[List[Waypoint]]|None = None,
-        rr_paths_path: Path = DEFAULT_PATHS_FILE, dest_pt: int|None = None) -> List[int]:
+        rr_paths_path: Path = DEFAULT_PATHS_FILE, forced_dest_pt: int|None = None) -> List[int]:
     paths = paths or get_paths_from_pt(start_pt, rr_paths_path)
 
     best_paths: Dict[int, List[Waypoint]] = {}
+    engine = override_engine or s.players[player_i].engine
+
     def get_best_path(end_pt: int) -> List[Waypoint]:
         if end_pt not in best_paths:
             best_path: List[Waypoint] = []
@@ -190,8 +202,7 @@ def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[L
             for path in paths:
                 if path[-1][1] != end_pt:
                     continue
-                cost = calculate_path_cost(s.map, 
-                    override_engine or s.players[player_i].engine, 
+                cost = calculate_path_cost(s.map, engine, 
                     player_i, path, 0, player_rr, 
                     init_rr, established_rate, doubleFees, N=10)
                 if min_cost < 0 or cost < min_cost:
@@ -202,21 +213,28 @@ def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[L
 
     sim_costs: List[int] = []
     for _ in range(n_dest):
-        if not dest_pt:
+        if not forced_dest_pt:
             dest_region = s.random_lookup('REGION')
             while dest_region == s.map.points[start_pt].region:
                 dest_region = s.random_lookup('REGION')
             _, dest_pt = s.map.lookup_city(s.random_lookup(dest_region))
-        sim_costs += simulate_rolls(s.map, s.players[player_i].engine, 
+        else:
+            dest_pt = forced_dest_pt
+        sim_costs += simulate_rolls(s.map, engine, 
             player_i, get_best_path(dest_pt), n_rolls_per_dest,
             player_rr, doubleFees, init_rr, established_rate)
     return list(sorted(sim_costs))
 
 def select_purchase_options(s: GameState, player_i: int, user_fee: int) -> str|None:
     ps = s.players[player_i]
+    def opt_name(opt: str):
+        return (opt if opt in [Engine.Express.name, Engine.Superchief.name] 
+            else s.map.railroads[opt].shortName)
+
     # We only consider options which leave us with > 0 balance after paying user fees
     raw_opts = s.get_player_purchase_opts(player_i)
     if len(raw_opts) == 0:
+        print('  AI >> No options to choose from, buying nothing')
         return None
 
     # First, we filter out the options we "can't" purchase because they put
@@ -264,38 +282,44 @@ def select_purchase_options(s: GameState, player_i: int, user_fee: int) -> str|N
                 N_DEST, N_ROLL_PER_DEST, paths=paths)
         next_trip_cost = sim_costs[int(CRIT_PCT * N_DEST * N_ROLL_PER_DEST)]
         est_bal = ps.bank - price + user_fee + next_trip_cost
-        print(f'  AI >> Est balance after buying {opt} = {ps.bank} - {price} - {-user_fee} - {-next_trip_cost} = {est_bal}')
+        print(f'  AI >> Est balance after buying {opt_name(opt):10} = {ps.bank:6} - {price:5} - {-user_fee:5} - {-next_trip_cost:5} = {est_bal:6}')
         if est_bal > MIN_BAL:
             if opt in [Engine.Express.name, Engine.Superchief.name]:
                 has_engine = True
             filtered_opts.append((opt, price))
         else:
-            print(f'  AI >> DROPPING {opt}')
+            print(f'  AI >> Removing option {opt_name(opt)}')
 
     # If no options remain, do nothing
     if len(filtered_opts) == 0:
+        print(f'  AI >> No remaining options, buying nothing')
         return None
     # If only one option remains, do that without scoring
     if len(filtered_opts) == 1:
+        opt = filtered_opts[0][0]
+        print(f'  AI >> Buying only remaining option, {opt_name(opt)}')
         return filtered_opts[0][0]
     # Always buy the largest engine possible if it's an option
     if any(o == Engine.Superchief.name for o,_ in filtered_opts):
+        print(f'  AI >> Automatically buying engine {Engine.Superchief.name}')
         return Engine.Superchief.name
     elif any(o == Engine.Express.name for o,_ in filtered_opts):
+        print(f'  AI >> Automatically buying engine {Engine.Express.name}')
         return Engine.Express.name
 
     best_rr: str|None = None
     best_score: int|None = None
-    SCORE_PER_FREE_PT = 200
-    SCORE_PER_LOCKED_PT = 150
+    SCORE_PER_FREE_PT = 250
+    SCORE_PER_LOCKED_PT = 250
     for opt, price in filtered_opts:
-        score = -price
+        n_free_pt = 0
+        n_locked_pt = 0
         for p in s.map.points:
             rrs = set(p.connections.keys())
             if opt not in rrs:
                 continue
             if not any(rr in base_player_rr[player_i] for rr in rrs):
-                score += SCORE_PER_FREE_PT
+                n_free_pt += 1
             rrs.remove(opt)
             locked_out = [True] * len(s.players)
             locked_out[player_i] = False
@@ -307,23 +331,28 @@ def select_purchase_options(s: GameState, player_i: int, user_fee: int) -> str|N
                         locked_out[player_j] = False
                         rrs.remove(rr)
             if len(rrs) == 0:
-                score += sum(SCORE_PER_LOCKED_PT if l else 0 for l in locked_out)
-        print(f'  AI >> SCORING {opt} = {score}')
+                n_locked_pt += sum(1 if l else 0 for l in locked_out)
+        score = n_free_pt * SCORE_PER_FREE_PT + n_locked_pt * SCORE_PER_LOCKED_PT - price
+        print(f'  AI >> Score of {opt_name(opt)} = {score} ({n_free_pt} free, {n_locked_pt} locked, {price} price)')
         if not best_score or score > best_score:
             best_score = score
             best_rr = opt
+    assert best_rr, "Must have at least one RR to choose from"
+    print(f'  AI >> Selected {opt_name(best_rr)}')
     return best_rr
 
-MIN_DECLARE_SIM_THRESH = MIN_CASH_TO_WIN * 5 // 4
+MIN_DECLARE_SIM_THRESH = 100000
 def recommend_declare(s: GameState, player_i: int) -> bool:
     ps = s.players[player_i]
-    if ps.bank >= MIN_DECLARE_SIM_THRESH:
+    if ps.bank >= MIN_CASH_TO_WIN + MIN_DECLARE_SIM_THRESH:
+        print(f'  AI >> Balance above threshold, skipping simulation')
         return True
     player_rr = [p.rr_owned for p in s.players]
     N_ROLL_SIM = 1000
     CRIT_PCT = 0.10
     sim_costs = simulate_costs(s, player_i, ps.location, player_rr,
         ps.rr, ps.established_rate, s.doubleFees, 
-        1, N_ROLL_SIM, dest_pt=ps.homeCityIndex)
+        1, N_ROLL_SIM, forced_dest_pt=ps.homeCityIndex)
     crit_cost = sim_costs[int(CRIT_PCT * N_ROLL_SIM)]
-    return ps.bank >= MIN_CASH_TO_WIN + crit_cost
+    print(f'  AI >> Estimated balance at end of trip = {ps.bank + crit_cost}')
+    return ps.bank + crit_cost >= MIN_CASH_TO_WIN

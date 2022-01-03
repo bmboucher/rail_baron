@@ -7,7 +7,7 @@ from typing import List, Dict, Tuple, Optional
 from enum import Enum
 
 from pyrailbaron.game.constants import *
-from pyrailbaron.map.datamodel import read_map, Map, Waypoint
+from pyrailbaron.map.datamodel import make_rail_seg, rail_segs_from_wps, read_map, Map, Waypoint
 from pyrailbaron.game.charts import read_route_payoffs, read_roll_tables
 
 from random import randint
@@ -72,9 +72,15 @@ class PlayerState:
             assert self.atDestination, "Must reach one destination before setting another"
             self._startCity = self._destination
             self._startCityIndex = self._destinationIndex
+            self.trips_completed += 1
         self._destination = dest
         self._destinationIndex = dest_i
         self.history.clear()
+        self.trip_turns = 0
+        self.trip_fees_paid = 0
+        self.trip_fees_received = 0
+        self.trip_miles = 0.0
+        self.rover_play_index = -1
 
     bank: int = 0
     engine: Engine = Engine.Basic
@@ -85,6 +91,47 @@ class PlayerState:
         # List of rail lines (i.e. rr + pt) used this trip
     declared: bool = False
 
+    # Game statistics
+    total_fees_paid: int = 0
+    total_fees_received: int = 0
+    total_route_payoffs: int = 0
+    total_miles: float = 0.0
+    rover_play_wins: int = 0
+    rover_play_losses: int = 0
+    times_declared: int = 0
+    trips_completed: int = 0
+
+    # Current trip statistics
+    trip_turns: int = 0
+    trip_fees_paid: int = 0
+    trip_fees_received: int = 0
+    rover_play_index: int = -1
+    trip_miles: float = 0.0
+    def record_turn_start(self):
+        self.trip_turns += 1
+    def record_user_fees(self, bank_deltas: List[int]):
+        fee = bank_deltas[self.index]
+        if fee > 0:
+            self.total_fees_received += fee
+            self.trip_fees_received += fee
+        else:
+            self.total_fees_paid -= fee
+            self.trip_fees_paid -= fee
+    def record_route_payoff(self, payoff: int):
+        self.total_route_payoffs += payoff
+    def record_rover_play(self, winner: bool, rover_play_index: int):
+        if winner:
+            self.rover_play_wins += 1
+        else:
+            assert rover_play_index == len(self.history) - 1, "Can only lose a rover play at last location"
+            self.rover_play_losses += 1
+        self.rover_play_index = rover_play_index
+
+    def declare(self):
+        assert self.canDeclare, "Can't declare right now"
+        self.declared = True
+        self.times_declared += 1
+
     @property
     def location(self) -> int:
         if len(self.history) == 0:
@@ -92,12 +139,44 @@ class PlayerState:
         else:
             return self.history[-1][1]
 
-    def move(self, waypoints: List[Waypoint]):
+    def move(self, m: Map, waypoints: List[Waypoint]):
         assert len(waypoints) > 0, "Move must contain at least one waypoint"
         assert all(pt_i != self.destinationIndex for _, pt_i 
             in waypoints[:-1]), "The destination can only be the last waypoint"
+        curr_pt = self.location
+        used_segs = rail_segs_from_wps(self.startCityIndex, self.history)
+        alt_used_segs = used_segs.copy()
+        if self.rover_play_index >= 0:
+            rover_pt = self.history[self.rover_play_index][1]
+            alt_used_segs = rail_segs_from_wps(rover_pt, self.history[self.rover_play_index + 1:])
+        seg_miles: float = 0.0
+        for rr, next_pt in waypoints:
+            assert next_pt in m.points[curr_pt].connections[rr], "Must take a valid RR connection"
+            rs = make_rail_seg(rr, curr_pt, next_pt)
+            if rs in used_segs:
+                # This had to be added to cover the corner case that a player
+                # may have a rover pulled on them near their home city, in a
+                # way that prevents any legal moves to the (alternate) destination.
+                # The player who pulls the rover move may similarly be too aggressive
+                # and leave no options to continue to their own destination; however,
+                # this is somewhat handled by checking before attempting the rover
+                # at all. It's REALLY hard to program the AI to avoid this, and
+                # I'm not sure what a human would even do on the receiving end, so
+                # we cover this corner case by just relaxing the rules a little if
+                # a rover has occurred this trip. Just a little ;)
+                assert self.rover_play_index >= 0, "Can only reuse rail segs after a rover play"
+                assert rs not in alt_used_segs, "Can only reuse rail segs from BEFORE the rover"
+            used_segs.append(rs)
+            seg_miles += m.gc_distance(curr_pt, next_pt)
+            curr_pt = next_pt
+
+        self.trip_miles += seg_miles
+        self.total_miles += seg_miles
         self.rr = waypoints[-1][0] # Store last RR visited
         self.history += waypoints
+        if self.trip_turns == 0:
+            # We may be on the bonus roll after destination changes
+            self.trip_turns = 1
 
     @property
     def atDestination(self) -> bool:
@@ -109,7 +188,7 @@ class PlayerState:
 
     @property
     def canDeclare(self) -> bool:
-        return self.atDestination and self.bank >= MIN_DECLARE_CASH
+        return not self.declared and self.atDestination and self.bank >= MIN_DECLARE_CASH
 
     @property
     def winner(self) -> bool:

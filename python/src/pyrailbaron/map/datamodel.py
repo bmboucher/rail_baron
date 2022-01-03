@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
-from typing import Tuple, List, Set, Optional, Dict
+from typing import Tuple, List, Set, Optional, Dict, Iterable
 from math import sqrt, asin, sin, cos, pi
 from pathlib import Path
 
@@ -116,7 +116,7 @@ def rail_segs_from_wps(start_pt: int, wp: List[Waypoint]) -> List[RailSegment]:
 
 def get_valid_waypoints(m: Map, pt_i: int, 
         exclude_rs: List[RailSegment] = [], 
-        exclude_pts: List[int] = []) -> List[Waypoint]:
+        exclude_pts: Iterable[int] = []) -> List[Waypoint]:
     wps: List[Waypoint] = []
     for rr, conn_pts in m.points[pt_i].connections.items():
         for pt_j in conn_pts:

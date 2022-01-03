@@ -58,7 +58,7 @@ class Interface(ABC):
         pass
 
     @abstractmethod
-    def announce_route_payoff(self, s: GameState, player_i: int, amt: int):
+    def announce_route_payoff(self, s: GameState, player_i: int, payoff: int):
         pass
 
     # Ask if the player wants to sell the RR to the bank immediately for 1/2 cost

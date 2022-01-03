@@ -7,6 +7,30 @@ from time import time
 from datetime import timedelta
 from pathlib import Path
 
+def quick_network_distance(m: Map, start_pt: int, dest_pt: int, history: List[Waypoint] = []) -> int:
+    search_paths: Deque[List[Waypoint]] = deque()
+    pts_searched: Set[int] = set()
+
+    curr_pt = start_pt if len(history) ==  0 else history[-1][1]
+    rail_segs_used = rail_segs_from_wps(start_pt, history)
+
+    for start_step in get_valid_waypoints(m, curr_pt, rail_segs_used):
+        search_paths.append([start_step])
+    pts_searched.add(curr_pt)
+
+    while len(search_paths) > 0:
+        base_path = search_paths.popleft()
+        end_pt = base_path[-1][1]
+        rail_segs_used = rail_segs_from_wps(start_pt, history + base_path)
+        next_wp = get_valid_waypoints(m, end_pt, rail_segs_used, pts_searched)
+        for rr, next_pt in next_wp:
+            if next_pt == dest_pt:
+                return len(base_path) + 1
+            else:
+                search_paths.append(base_path + [(rr, next_pt)])
+                pts_searched.add(next_pt)
+    return -1
+
 # Returns the list of shortest paths from pt_from to pt_to
 def breadth_first_search(
         m: Map, pt_from: int, pt_to: int, 

@@ -18,6 +18,7 @@ def run_game(n_players: int, i: Interface):
     while True:
         i.announce_turn(s, player_i)
         ps = s.players[player_i]
+        ps.record_turn_start()
 
         # Roll for destination if needed
         check_destination(s, i, player_i)
@@ -115,17 +116,28 @@ def do_move(s: GameState, i: Interface, player_i: int, d: int, init_rr: str | No
     assert len(waypoints) <= d, "Can't move more than the number of allocated spaces"
     if len(waypoints) < d:
         assert waypoints[-1][1] == s.players[player_i].destinationIndex, "Can only stop short at a destination"
-    pts = [s.players[player_i].location] + [pt for _,pt in waypoints]
+    pts = [pt for _,pt in waypoints]
 
     # Update location
-    s.players[player_i].move(waypoints)
+    ps = s.players[player_i]
+    ps.move(s.map, waypoints)
 
     # Check for a rover play
     for player_j, other_ps in enumerate(s.players):
         if player_i == player_j:
             continue
         if other_ps.declared and other_ps.location in pts:
-            i.announce_rover_play(s, player_j, player_i)
+            # Calculate the first index in THIS move that the winning player
+            # crossed the losing player's location
+            rover_play_index = (len(ps.history) 
+                - len(waypoints) + next(i for i,(_,p) in enumerate(waypoints) 
+                     if p == other_ps.location))
+
+            assert ps.history[rover_play_index][1] == other_ps.location, "Rover play index must be set correctly"      
+            ps.record_rover_play(
+                winner=True, rover_play_index=rover_play_index)
+            other_ps.record_rover_play(
+                winner=False, rover_play_index=len(other_ps.history) - 1)
 
             bank_deltas = [0] * len(s.players)
             bank_deltas[player_j] = -ROVER_PLAY_FEE
@@ -133,6 +145,7 @@ def do_move(s: GameState, i: Interface, player_i: int, d: int, init_rr: str | No
             update_balances(s, i, bank_deltas)
 
             other_ps.declared = False
+            i.announce_rover_play(s, player_j, player_i)
 
     bank_deltas = [0] * len(s.players)
     if is_last_move:
@@ -141,6 +154,8 @@ def do_move(s: GameState, i: Interface, player_i: int, d: int, init_rr: str | No
         # and store and eventually pass the user fee to i.get_purchase
         history = [] if moves_so_far <= 0 else s.players[player_i].history[-moves_so_far:]
         bank_deltas = calc_turn_user_fees(s, player_i, history + waypoints, init_rr)
+        for ps in s.players:
+            ps.record_user_fees(bank_deltas)
 
     # Check if player_i has reached destination for payoff/purchasing
     check_arrival(s, i, player_i, bank_deltas[player_i])
@@ -244,7 +259,8 @@ def check_destination(s: GameState, i: Interface, player_i: int) -> None:
 
     # Ask player if they want to declare when eligible
     if not ps.declared and ps.canDeclare:
-        ps.declared = i.ask_to_declare(s, player_i)
+        if i.ask_to_declare(s, player_i):
+            ps.declare()
 
     # Roll for destination (if declared, this is alt destination)
     if needs_destination:
@@ -262,6 +278,7 @@ def check_arrival(s: GameState, i: Interface, player_i: int, user_fee: int):
     # Calculate route payoff and distribute to player
     payoff = s.route_payoffs[ps.startCity][ps.destination]
     i.announce_route_payoff(s, player_i, payoff)
+    ps.record_route_payoff(payoff)
     bank_deltas = [0] * len(s.players)
     bank_deltas[player_i] = payoff
     update_balances(s, i, bank_deltas)
