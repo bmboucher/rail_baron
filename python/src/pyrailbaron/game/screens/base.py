@@ -6,8 +6,14 @@ from time import time
 
 @dataclass
 class Button:
+    label: str
     bounds: pg.Rect
     handler: Callable[[], None]
+    _id: str|None = None
+
+    @property
+    def id(self) -> str:
+        return self._id or self.label
 
 FRAME_RATE = 30
 ASSETS_DIR = (Path(__file__) / '../../assets').resolve()
@@ -17,10 +23,20 @@ class PyGameScreen:
         self.screen = screen
         self.buttons: List[Button] = []
         self.images: Dict[str, pg.surface.Surface] = {}
+        self.fonts: Dict[str, pg.font.Font] = {}
         self.start_t = time()
+        self._active: bool = True
 
-    def add_button(self, bounds: pg.Rect, handler: Callable[[], None]):
-        self.buttons.append(Button(bounds, handler))
+    def add_button(self, label: str, bounds: pg.Rect, handler: Callable[[], None],
+            close_after: bool = False):
+        _handler = handler
+        if close_after:
+            def wrapped():
+                handler()
+                self._active = False
+            _handler = wrapped
+        self.draw_button(label, bounds)
+        self.buttons.append(Button(label, bounds, _handler))
 
     def load_image(self, path: Path | str) -> pg.surface.Surface:
         path = Path(path)
@@ -32,27 +48,70 @@ class PyGameScreen:
             self.images[key] = pg.image.load(path)
         return self.images[key]
 
+    def draw_background(self, path: Path | str):
+        background = self.load_image(path)
+        self.screen.blit(background, (0, 0))
+
     def draw(self, init: bool):
+        pass
+
+    def draw_button(self, label: str, bounds: pg.Rect):
         pass
 
     def check(self) -> bool:
         return True
 
+    def get_font(self, font: str, font_size: int) -> pg.font.Font:
+        key = f'{font}/{font_size}'
+        if key not in self.fonts:
+            for font_ext in ['otf', 'ttf']:
+                font_path = (ASSETS_DIR / f'{font}.{font_ext}')
+                if font_path.exists():
+                    self.fonts[key] = pg.font.Font(font_path, font_size); break
+        if key not in self.fonts:
+            self.fonts[key] = pg.font.SysFont(font, font_size)
+        return self.fonts[key]
+
+    def draw_text(self, text: str, font: str, font_size: int, bounds: pg.Rect,
+            color: pg.Color = pg.Color(0, 0, 0), line_spacing: float = 1.25):
+        assert line_spacing >= 1.0, "Line spacing can't be <1"
+        pg_font = self.get_font(font, font_size)
+        labels = [pg_font.render(line, True, color) for
+            line in text.split('\n')]
+        label_w = max(l.get_width() for l in labels)
+        label_h = (
+            int(line_spacing * sum(l.get_height() for l in labels[:-1])) 
+             + labels[-1].get_height())
+        start_x = bounds.left + (bounds.w - label_w) // 2
+        start_y = bounds.top + (bounds.h - label_h) // 2
+        for label in labels:
+            pad = (label_w - label.get_width()) // 2
+            self.screen.blit(label, (start_x + pad, start_y))
+            start_y += int(line_spacing * label.get_height())
+
     def run(self):
-        self.draw(True)
-        pg.display.update()
+        self._active = True
+        def _draw(init: bool):
+            if not self._active:
+                return
+            self.draw(init)
+            for btn in self.buttons:
+                self.draw_button(btn.label, btn.bounds)
+            pg.display.update()
+
+        _draw(True)
         clock = pg.time.Clock()
-        while self.check():
+        while self._active and self.check():
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     pg.quit()
+                    exit(1)
                 elif (event.type == pg.MOUSEBUTTONDOWN and
                         pg.mouse.get_pressed()[0]):
                     x, y = pg.mouse.get_pos()
                     for button in self.buttons:
                         if button.bounds.contains(pg.Rect(x-1,y-1,2,2)):
                             button.handler()
-                            self.draw(False)
-                            pg.display.update()
+                            _draw(False)
                             break
             clock.tick(FRAME_RATE)
