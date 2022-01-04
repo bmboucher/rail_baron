@@ -1,0 +1,6 @@
+# By default, don't check in assets
+*
+
+# Explicity add them to this list
+!.gitignore
+!__init__.py
