@@ -134,7 +134,7 @@ def search_all_paths(m: Map, start_pt: int, skip_cities: List[int] = []) -> Dict
     cities = [pt.index for pt in m.points if len(pt.city_names) > 0]
     return dict((c, [p for k,p in found_paths.items() if k[0] == c]) for c in cities)
 
-DEFAULT_PATHS_FILE = (Path(__file__) / '../../../../../output/rr_paths.csv').resolve()
+DEFAULT_PATHS_FILE = (Path(__file__) / '../../../../../data/test_paths.csv').resolve()
 
 def write_all_paths(m: Map, output_path: Path = DEFAULT_PATHS_FILE):
     cities = [pt.index for pt in m.points if len(pt.city_names) > 0]

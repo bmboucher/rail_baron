@@ -43,14 +43,16 @@ def calculate_path_cost(m: Map, e: Engine,
             sim_costs = simulate_rolls(m, e, player_i, path[d:], N, 
                 player_rr, doubleFees, path[d-1][0], est_rate)
             average_cost = sum(sim_costs) // N
-    
-    return fixed_cost + average_cost
+        return fixed_cost + average_cost
+    else:
+        return 0
 
 # Given a fixed path, simulate N traversals of the path (corresponding to random
 # die rolls for distance) and return the costs by scenario
 def simulate_rolls(m: Map, e: Engine, player_i: int, path: List[Waypoint], N: int,
         player_rr: List[List[str]], doubleFees: bool, 
-        init_rr: str|None, established_rate: int|None) -> List[int]:
+        init_rr: str|None, established_rate: int|None,
+        include_last_leg: bool = True) -> List[int]:
     cost_by_path: List[int] = [0] * N
     for sim_n in range(N):
         rem_path = path.copy()
@@ -62,7 +64,8 @@ def simulate_rolls(m: Map, e: Engine, player_i: int, path: List[Waypoint], N: in
                 player_rr, init_rr, established_rate, doubleFees)
             rem_path = rem_path[new_d:]
             init_rr = seg_path[-1][0]
-            cost_by_path[sim_n] += fees[player_i]
+            if include_last_leg or len(rem_path) > 0:
+                cost_by_path[sim_n] += fees[player_i]
     return cost_by_path
 
 # Reduce a collection of paths to below size N
@@ -222,7 +225,8 @@ def simulate_costs(s: GameState, player_i: int, start_pt: int, player_rr: List[L
             dest_pt = forced_dest_pt
         sim_costs += simulate_rolls(s.map, engine, 
             player_i, get_best_path(dest_pt), n_rolls_per_dest,
-            player_rr, doubleFees, init_rr, established_rate)
+            player_rr, doubleFees, init_rr, established_rate, 
+            include_last_leg=False)
     return list(sorted(sim_costs))
 
 def select_purchase_options(s: GameState, player_i: int, user_fee: int) -> str|None:
