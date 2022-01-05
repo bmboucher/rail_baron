@@ -7,7 +7,7 @@ from pyrailbaron.game.logic import run_game
 from pyrailbaron.game.ai import plan_best_moves, recommend_declare, select_purchase_options
 
 from random import randint
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Dict
 from pyrailbaron.map.bfs import quick_network_distance
 
 from pyrailbaron.map.datamodel import R_EARTH
@@ -263,7 +263,7 @@ class CLI_Interface(Interface):
     def announce_sale_to_bank(self, s: GameState, seller_i: int, rr: str, price: int):
         print(f'{s.players[seller_i].name} SELLS {rr} TO THE BANK FOR {price}')
 
-    def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> Optional[str]:
+    def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> str|None:
         ps = s.players[player_i]
         print(f'{ps.name} >>> SELECT PURCHASE ({ps.bank + user_fee} AVAILABLE)')
         options: List[Tuple[str, int]] = s.get_player_purchase_opts(player_i)

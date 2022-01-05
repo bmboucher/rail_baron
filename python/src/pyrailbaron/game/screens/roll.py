@@ -43,7 +43,8 @@ def draw_die(screen: pg.surface.Surface, c_x: int, c_y: int, n: int,
 
 class RollScreen(PyGameScreen):
     def __init__(self, screen: pg.surface.Surface, 
-            n_die: int, label: str, handler: Callable[[List[int]], str|None],
+            n_die: int, label: str, 
+            handler: Callable[[List[int]], str|None] | None = None,
             odd_even_die: bool = False, wait_for_user: bool = True):
         super().__init__(screen)
         self.n_die = n_die
@@ -61,12 +62,17 @@ class RollScreen(PyGameScreen):
         self._blink: bool = False
 
     @property
+    def roll(self) -> List[int]:
+        return self._current_roll
+
+    @property
     def result(self) -> str|None:
         return self._result
 
     def do_roll(self):
         self._current_roll = [randint(1,6) for _ in range(self.n_die)]
-        self._result = self.handler(self._current_roll)
+        if self.handler:
+            self._result = self.handler(self._current_roll)
         print(f'Rolled {self._current_roll} -> {self._result}')
 
     def click(self):
@@ -154,7 +160,7 @@ class RegionRoll(RollScreen):
             assert len(roll) == 3, "Must roll 3 for region"
             # TODO: Flash regions on LEDs
             return s.lookup_roll_table('REGION', *roll)
-        super().__init__(screen, 3, f'{player_n} {tag}', handler,
+        super().__init__(screen, 3, f'{player_n} > {tag}', handler,
             odd_even_die=True, **kwargs)
 
 class CityRoll(RollScreen):
@@ -165,8 +171,8 @@ class CityRoll(RollScreen):
             assert len(roll) == 3, "Must roll 3 for region"
             # TODO: Flash cities on LEDs
             return s.lookup_roll_table(region, *roll)
-        super().__init__(screen, 3, f'{player_n} {tag}', handler,
-            odd_even_die=True, **kwargs)
+        super().__init__(screen, 3, f'{player_n} > {tag}', handler,
+            odd_even_die=True, wait_for_user=False, **kwargs)
 
 if __name__ == '__main__':
     pg.init()
@@ -178,7 +184,7 @@ if __name__ == '__main__':
     region = region_roll.result
     assert region
 
-    city_roll = CityRoll(screen, s, 0, region, 'HOME CITY', wait_for_user=False)
+    city_roll = CityRoll(screen, s, 0, region, 'HOME CITY')
     city_roll.run()
     city = city_roll.result
     assert city

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pyrailbaron.game.state import GameState
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
 class Interface(ABC):
     @abstractmethod
@@ -85,7 +85,7 @@ class Interface(ABC):
 
     # Select engine/rail line to purchase
     @abstractmethod
-    def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> Optional[str]:
+    def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> str|None:
         pass
 
     # Ask a player whether they want to declare before setting alternate destination
