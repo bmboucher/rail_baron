@@ -4,6 +4,8 @@ from typing import Callable, List, Dict
 from pathlib import Path
 from time import time
 
+from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
+
 @dataclass
 class Button:
     label: str
@@ -52,14 +54,27 @@ class PyGameScreen:
         background = self.load_image(path)
         self.screen.blit(background, (0, 0))
 
+    def solid_background(self, color: pg.Color = pg.Color(0,0,0),
+            buffer: pg.surface.Surface|None = None):
+        buffer = buffer or self.screen
+        pg.draw.rect(buffer, color,
+            pg.Rect(0, 0, SCREEN_W, SCREEN_H), 0)
+
     def draw(self, init: bool):
         pass
+
+    def animate(self) -> bool:
+        return False
 
     def draw_button(self, label: str, bounds: pg.Rect):
         pass
 
     def check(self) -> bool:
         return True
+
+    def close(self):
+        assert self._active, "Can only close once"
+        self._active = False
 
     def get_font(self, font: str, font_size: int) -> pg.font.Font:
         key = f'{font}/{font_size}'
@@ -73,7 +88,8 @@ class PyGameScreen:
         return self.fonts[key]
 
     def draw_text(self, text: str, font: str, font_size: int, bounds: pg.Rect,
-            color: pg.Color = pg.Color(0, 0, 0), line_spacing: float = 1.25):
+            color: pg.Color = pg.Color(0, 0, 0), line_spacing: float = 1.25,
+            buffer: pg.surface.Surface|None = None):
         assert line_spacing >= 1.0, "Line spacing can't be <1"
         pg_font = self.get_font(font, font_size)
         labels = [pg_font.render(line, True, color) for
@@ -84,9 +100,10 @@ class PyGameScreen:
              + labels[-1].get_height())
         start_x = bounds.left + (bounds.w - label_w) // 2
         start_y = bounds.top + (bounds.h - label_h) // 2
+        buffer = buffer or self.screen
         for label in labels:
             pad = (label_w - label.get_width()) // 2
-            self.screen.blit(label, (start_x + pad, start_y))
+            buffer.blit(label, (start_x + pad, start_y))
             start_y += int(line_spacing * label.get_height())
 
     def run(self):
@@ -114,4 +131,6 @@ class PyGameScreen:
                             button.handler()
                             _draw(False)
                             break
+            if self.animate():
+                _draw(False)
             clock.tick(FRAME_RATE)

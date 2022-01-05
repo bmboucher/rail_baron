@@ -1,12 +1,13 @@
 from pyrailbaron.game.main import main
-from pyrailbaron.game.screens.main_menu import MainMenuScreen
+from pyrailbaron.game.state import GameState
 from pyrailbaron.map.datamodel import Coordinate
 from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.logic import run_game
 
 import pygame as pg
 
-from pyrailbaron.game.screens import SplashScreen
+from pyrailbaron.game.screens import (
+    SplashScreen, MainMenuScreen, RegionRoll, CityRoll, roll)
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 
 SCREENRECT = pg.Rect(0,0,SCREEN_W,SCREEN_H)
@@ -36,6 +37,22 @@ class PyGame_Interface():
         assert n_players > 1, "Must have at least two players"
         # run_game(n_players, self)
 
+    def get_player_name(self, player_i: int) -> str:
+        # TODO: Build keyboard, randomize order etc
+        return f'Player {player_i}'
+
+    def get_home_city(self, s: GameState, player_i: int) -> str:
+        roll_screen = RegionRoll(self.screen, s, player_i, 'HOME REGION')
+        roll_screen.run()
+        home_region = roll_screen.result
+        assert home_region, "Must have home region aftet roll"
+
+        roll_screen = CityRoll(self.screen, s, player_i, home_region, 'HOME CITY')
+        roll_screen.run()
+        home_city = roll_screen.result
+        assert home_city, "Must have home city after roll"
+        return home_city
+        
     def run(self):
         self.display_splash()
         while True:
