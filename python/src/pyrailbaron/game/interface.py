@@ -4,7 +4,11 @@ from typing import List, Tuple, Optional
 
 class Interface(ABC):
     @abstractmethod
-    def get_player_name(self, player_i: int) -> str:
+    def get_player_name(self) -> str:
+        pass
+
+    @abstractmethod
+    def announce_player_order(self, s: GameState):
         pass
 
     # Roll for home city

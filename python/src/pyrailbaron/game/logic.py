@@ -6,6 +6,7 @@ from pyrailbaron.game.state import Engine, GameState, PlayerState, Waypoint
 from pyrailbaron.game.constants import *
 from pyrailbaron.game.fees import calculate_user_fees
 from typing import List
+from random import shuffle
 
 # Basic game loop, will run to completion unless error
 def run_game(n_players: int, i: Interface):
@@ -64,12 +65,16 @@ def run_game(n_players: int, i: Interface):
 def init_game(i: Interface, n_players: int) -> GameState:
     s = GameState()
 
+    player_names = [i.get_player_name() for _ in range(n_players)]
+    shuffle(player_names)
+
     # Ask each player their name and create initial states
     for player_i in range(n_players):
         p = PlayerState(
             index=player_i,
-            name=i.get_player_name(player_i))
+            name=player_names[player_i])
         s.players.append(p)
+    i.announce_player_order(s)
 
     # Deposit initial 20k
     update_balances(s, i, [INITIAL_BANK] * n_players)

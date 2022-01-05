@@ -39,12 +39,26 @@ class CLI_Interface(Interface):
     def __init__(self, auto_move: bool = False):
         self.auto_move = auto_move
         self.turn_count = 0
+        self.cpu_count = 0
 
-    def get_player_name(self, player_i: int) -> str:
+    def get_player_name(self) -> str:
         if self.auto_move:
-            return f'CPU{player_i + 1}'
+            self.cpu_count += 1
+            return f'CPU{self.cpu_count}'
 
-        return input(f'Player {player_i + 1} name: ')
+        return input(f'Player name: ')
+
+    def announce_player_order(self, s: GameState):
+        print('\nRANDOM PLAYER ORDER:')
+        for p in s.players:
+            ord = f'{p.index + 1}th'
+            if p.index == 0:
+                ord = '1st'
+            elif p.index == 1:
+                ord = '2nd'
+            elif p.index == 2:
+                ord = '3rd'
+            print(f'  {ord}  {p.name}')
 
     def get_home_city(self, s: GameState, player_i: int) -> str:
         pn = s.players[player_i].name

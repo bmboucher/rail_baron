@@ -1,3 +1,4 @@
+from pygame import key
 from pyrailbaron.game.main import main
 from pyrailbaron.game.state import GameState
 from pyrailbaron.map.datamodel import Coordinate
@@ -7,7 +8,7 @@ from pyrailbaron.game.logic import run_game
 import pygame as pg
 
 from pyrailbaron.game.screens import (
-    SplashScreen, MainMenuScreen, RegionRoll, CityRoll, roll)
+    SplashScreen, MainMenuScreen, RegionRoll, CityRoll, KeyboardScreen)
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 
 SCREENRECT = pg.Rect(0,0,SCREEN_W,SCREEN_H)
@@ -37,9 +38,12 @@ class PyGame_Interface():
         assert n_players > 1, "Must have at least two players"
         # run_game(n_players, self)
 
-    def get_player_name(self, player_i: int) -> str:
-        # TODO: Build keyboard, randomize order etc
-        return f'Player {player_i}'
+    def get_player_name(self) -> str:
+        keyboard = KeyboardScreen(self.screen)
+        keyboard.run()
+        assert len(keyboard.text) > 0, "Player name must have >0 characters"
+        assert not keyboard.text.startswith('CPU'), "Player names cannot start with CPU"
+        return keyboard.text
 
     def get_home_city(self, s: GameState, player_i: int) -> str:
         roll_screen = RegionRoll(self.screen, s, player_i, 'HOME REGION')

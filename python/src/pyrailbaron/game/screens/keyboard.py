@@ -79,7 +79,7 @@ class KeyboardScreen(PyGameScreen):
                 bounds, text_color)
 
     def accept(self):
-        if len(self._text) > 0:
+        if len(self.text) > 0 and not self.text.startswith('CPU'):
             self.close()
 
     def draw(self, init: bool):
