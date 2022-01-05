@@ -1,3 +1,4 @@
+from pyrailbaron.game.screens.move import MoveScreen
 from pyrailbaron.game.state import GameState
 from pyrailbaron.map.datamodel import Coordinate
 from pyrailbaron.game.interface import Interface
@@ -104,10 +105,13 @@ class PyGame_Interface(Interface):
         assert len(roll) == 1, 'Roll for distance must return 2 die'
         return roll[0]
 
-    def get_player_move(self, s: GameState, player_i: int, d: int, init_rr: str | None, moves_so_far: int) -> List[Tuple[str, int]]:
-        # TODO: Implement
-        pg.quit()
-        exit()
+    def get_player_move(self, 
+            s: GameState, player_i: int, d: int, 
+            init_rr: str | None, moves_so_far: int) -> List[Tuple[str, int]]:
+        move_screen = MoveScreen(self.screen, s, player_i, 
+            d, init_rr, moves_so_far)
+        move_screen.run()
+        return move_screen.selected_moves
 
     def update_bank_amts(self, s: GameState):
         Serial.update_bank_amounts(s)

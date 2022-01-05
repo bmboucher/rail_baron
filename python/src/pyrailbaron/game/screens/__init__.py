@@ -8,3 +8,4 @@ from pyrailbaron.game.screens.roll import (
     CityRoll
 )
 from pyrailbaron.game.screens.keyboard import KeyboardScreen
+from pyrailbaron.game.screens.move import MoveScreen
