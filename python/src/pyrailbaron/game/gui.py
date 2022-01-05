@@ -2,6 +2,7 @@ from pyrailbaron.game.state import GameState
 from pyrailbaron.map.datamodel import Coordinate
 from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.logic import run_game
+from pyrailbaron.teensy.serial import Serial
 
 import pygame as pg
 
@@ -46,24 +47,27 @@ class PyGame_Interface(Interface):
         return keyboard.text
 
     def announce_player_order(self, s: GameState):
-        # TODO: Implement
+        # TODO: Implement as a screen
         pass
 
     def get_home_city(self, s: GameState, player_i: int) -> str:
+        Serial.set_active_player(player_i, len(s.players))
+
         roll_screen = RegionRoll(self.screen, s, player_i, 'HOME REGION')
         roll_screen.run()
         home_region = roll_screen.result
         assert home_region, "Must have home region aftet roll"
 
-        roll_screen = CityRoll(self.screen, s, player_i, home_region, 'HOME CITY')
+        roll_screen = CityRoll(self.screen, s, player_i, home_region, 
+            'HOME CITY', is_home_city=True)
         roll_screen.run()
         home_city = roll_screen.result
         assert home_city, "Must have home city after roll"
         return home_city
 
     def announce_turn(self, s: GameState, player_i: int):
-        # TODO: Implement
-        pass
+        Serial.set_active_player(player_i, len(s.players))
+        # TODO: Implement turn info screen
 
     def get_destination(self, s: GameState, player_i: int) -> str:
         home_region = s.map.points[s.players[player_i].location].region
@@ -106,8 +110,7 @@ class PyGame_Interface(Interface):
         exit()
 
     def update_bank_amts(self, s: GameState):
-        # TODO: Implement
-        pass
+        Serial.update_bank_amounts(s)
 
     def update_owners(self, s: GameState):
         # TODO: Implement

@@ -1,6 +1,7 @@
 from pyrailbaron.game.screens.base import PyGameScreen
 from pyrailbaron.game.state import GameState, PlayerState
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
+from pyrailbaron.teensy.serial import Serial
 from enum import Enum
 
 import pygame as pg
@@ -158,18 +159,25 @@ class RegionRoll(RollScreen):
         player_n = s.players[player_i].name
         def handler(roll: List[int]) -> str:
             assert len(roll) == 3, "Must roll 3 for region"
-            # TODO: Flash regions on LEDs
-            return s.lookup_roll_table('REGION', *roll)
+            region = s.lookup_roll_table('REGION', *roll)
+            Serial.show_region(region)
+            return region
         super().__init__(screen, 3, f'{player_n} > {tag}', handler, **kwargs)
 
 class CityRoll(RollScreen):
     def __init__(self, screen: pg.surface.Surface, s: GameState, player_i: int,
-            region: str, tag: str, **kwargs: Any):
+            region: str, tag: str, is_home_city: bool = False, **kwargs: Any):
         player_n = s.players[player_i].name
         def handler(roll: List[int]) -> str:
             assert len(roll) == 3, "Must roll 3 for region"
-            # TODO: Flash cities on LEDs
-            return s.lookup_roll_table(region, *roll)
+            lookup_city = s.lookup_roll_table(region, *roll)
+            _, lookup_city_i = s.map.lookup_city(lookup_city)
+            if is_home_city:
+                Serial.show_home_city(lookup_city_i)
+            else:
+                start_i = s.players[player_i].location
+                Serial.show_destination(start_i, lookup_city_i)
+            return lookup_city
         super().__init__(screen, 3, f'{player_n} > {tag}', handler, 
             wait_for_user=False, **kwargs)
 
