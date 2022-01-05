@@ -140,7 +140,7 @@ def plan_best_moves(
         rover_pt = ps.history[ps.rover_play_index][1]
         print(f'  AI >> Replanning from rover move at {s.map.points[rover_pt].display_name} on')
         # We remove rail segs we used up to the rover from the excluded set
-        used_rail_segs = rail_segs_from_wps(rover_pt, ps.history[ps.rover_play_index:])
+        used_rail_segs = rail_segs_from_wps(rover_pt, ps.history[(ps.rover_play_index + 1):])
         shortest_paths = breadth_first_search(
             s.map, start_pt, dest_pt, used_rail_segs, path_length_flex)
 
