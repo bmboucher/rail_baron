@@ -1,6 +1,7 @@
 from pyrailbaron.game.screens.base import PyGameScreen
 from pyrailbaron.game.state import GameState, PlayerState
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
+from enum import Enum
 
 import pygame as pg
 from typing import Callable, List, Tuple, Any
@@ -10,7 +11,7 @@ from time import time
 START_ROLL_TIME = 0.1
 ROLL_INC_FACTOR = 1.25
 END_ROLL_TIME = 1.0
-LAST_ROLL_HANG_TIME = 0.5
+DISPLAY_WAIT_TIME = 0.25
 BLINK_PERIOD = 0.4
 
 DIE_CORNER_R = 30
@@ -28,6 +29,11 @@ LABEL_D = 300
 ROLL_LABEL_TOP = (SCREEN_H - LABEL_D)//2
 RESULT_TOP = (SCREEN_H + LABEL_D)//2
 
+STR_RESULTS = [
+    None, None,
+    'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX',
+    'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE']
+
 def draw_die(screen: pg.surface.Surface, c_x: int, c_y: int, n: int,
         die_color: pg.Color = pg.Color(255,255,255)):
     assert 1 <= n and n <= 6, f'Roll {n} must be in [1,6]'
@@ -41,57 +47,62 @@ def draw_die(screen: pg.surface.Surface, c_x: int, c_y: int, n: int,
             (c_x + ((DIE_SIZE * (pip_x - 2))//4),
              c_y + ((DIE_SIZE * (pip_y - 2))//4)), DIE_PIP_R, 0)
 
+class RollScreenStep(Enum):
+    Wait = 0
+    Roll = 1
+    Display = 2
+
 class RollScreen(PyGameScreen):
     def __init__(self, screen: pg.surface.Surface, 
             n_die: int, label: str, 
             handler: Callable[[List[int]], str|None] | None = None,
-            odd_even_die: bool = False, wait_for_user: bool = True):
+            wait_for_user: bool = True):
         super().__init__(screen)
         self.n_die = n_die
         self.label = label
         self.handler = handler
-        self.odd_even_die = odd_even_die
-        self.wait_for_user = wait_for_user
+
+        self._step = RollScreenStep.Wait if wait_for_user else RollScreenStep.Roll
+        self._mark = time()
         self._roll_period: float = START_ROLL_TIME
-        self._last_roll = self.start_t
-        self._current_roll: List[int] = [
+        self._roll: List[int] = [
             randint(1,6) for _ in range(self.n_die)]
         self._result: str|None = None
-        self._waiting: bool = self.wait_for_user
-        self._last_blink_time: float = time()
         self._blink: bool = False
 
     @property
     def roll(self) -> List[int]:
-        return self._current_roll
+        return self._roll
 
     @property
     def result(self) -> str|None:
         return self._result
 
     def do_roll(self):
-        self._current_roll = [randint(1,6) for _ in range(self.n_die)]
+        if self._step != RollScreenStep.Roll:
+            return
+        self._roll = [randint(1,6) for _ in range(self.n_die)]
+        self._mark = time()
+        self._roll_period *= ROLL_INC_FACTOR
         if self.handler:
-            self._result = self.handler(self._current_roll)
-        print(f'Rolled {self._current_roll} -> {self._result}')
+            self._result = self.handler(self._roll)
+        else:
+            self._result = STR_RESULTS[sum(self._roll)]
 
     def click(self):
-        if not self._waiting:
-            return
-        self._waiting = False
-        if self.roll_finished:
-            self._active = False
-        else:
-            self._last_roll = time()
+        if self._step == RollScreenStep.Wait:
+            self._step = RollScreenStep.Roll
             self.do_roll()
+        elif self._step == RollScreenStep.Display:
+            self.close()
 
     def draw(self, init: bool):
         if init:
             self.buttons.clear()
             self.add_button('Roll',pg.Rect(0,0,SCREEN_W,SCREEN_H), self.click)
 
-        # We blink the result text directly to an (already drawn) screen
-        if self.roll_finished:
+        if self._step == RollScreenStep.Display:
+            # We blink the result text directly to an (already drawn) screen
             assert self._result, "Can't finish roll without result"
             self.draw_text(self._result.replace('_',''), 'Corrigan-ExtraBold', 70,
                 pg.Rect(0, RESULT_TOP, SCREEN_W, 0), 
@@ -99,58 +110,47 @@ class RollScreen(PyGameScreen):
             pg.display.update()
             return
 
+        # Otherwise we fully render the screen to a buffer
         buffer = pg.surface.Surface((SCREEN_W, SCREEN_H))
         self.solid_background(buffer=buffer)
         self.draw_text(self.label, 'Corrigan-ExtraBold', 70,
             pg.Rect(0, ROLL_LABEL_TOP, SCREEN_W, 0), pg.Color(255,255,255),
             buffer=buffer)
-        if self._current_roll and len(self._current_roll) == self.n_die:
+        if self._roll and len(self._roll) == self.n_die:
             die_x = (SCREEN_W - (self.n_die - 1)*(DIE_SIZE + DIE_SPACING)) // 2
             for die_i in range(self.n_die):
                 die_color = (pg.Color(255,0,0) 
-                    if self.odd_even_die and die_i == self.n_die - 1
-                    else pg.Color(255,255,255))
+                    if die_i == 2 else pg.Color(255,255,255))
                 draw_die(buffer, die_x, SCREEN_H//2, 
-                    self._current_roll[die_i], die_color)
+                    self._roll[die_i], die_color)
                 die_x += DIE_SIZE + DIE_SPACING
-        if self._result:
+        if self._step == RollScreenStep.Wait:
+            self.draw_text('TAP TO ROLL', 'Corrigan-ExtraBold', 70,
+                pg.Rect(0, RESULT_TOP, SCREEN_W, 0), pg.Color(255, 0, 0), 
+                buffer=buffer)            
+        elif self._result:
             self.draw_text(self._result.replace('_',''), 'Corrigan-ExtraBold', 70,
                 pg.Rect(0, RESULT_TOP, SCREEN_W, 0), 
                 pg.Color(255,255,255), buffer=buffer)
-        elif self._waiting:
-            self.draw_text('CLICK TO ROLL', 'Corrigan-ExtraBold', 70,
-                pg.Rect(0, RESULT_TOP, SCREEN_W, 0), pg.Color(255, 0, 0), 
-                buffer=buffer)
-        screen.blit(buffer, (0,0))
-
-    @property
-    def roll_finished(self) -> bool:
-        return (self._roll_period > END_ROLL_TIME and
-            time() - self._last_roll >= LAST_ROLL_HANG_TIME)
-
-    def check(self) -> bool:
-        return self._waiting or not self.roll_finished
+        self.screen.blit(buffer, (0,0))
 
     def animate(self) -> bool:
-        if self._waiting and not self._result:
-            return False
-        redraw_flag = self._current_roll is None
-        now = time()
-        if now - self._last_roll >= self._roll_period:
-            self._last_roll = now
-            self._roll_period *= ROLL_INC_FACTOR
-            if self._roll_period <= END_ROLL_TIME:
-                redraw_flag = True
+        if self._step == RollScreenStep.Roll:
+            if self._roll_period >= END_ROLL_TIME:
+                if time() - self._mark >= DISPLAY_WAIT_TIME:
+                    self._step = RollScreenStep.Display
+                    self._mark = time()
+                    return True
             else:
-                self._waiting = True
-                self._last_blink_time = time()
-        if redraw_flag:
-            self.do_roll()
-        if self.roll_finished and time() - self._last_blink_time >= BLINK_PERIOD:
-            self._blink = not self._blink
-            self._last_blink_time = time()
-            redraw_flag = True
-        return redraw_flag
+                if time() - self._mark >= self._roll_period:
+                    self.do_roll()
+                    return True
+        elif self._step == RollScreenStep.Display:
+            if time() - self._mark >= BLINK_PERIOD:
+                self._blink = not self._blink
+                self._mark = time()
+                return True
+        return False
 
 class RegionRoll(RollScreen):
     def __init__(self, screen: pg.surface.Surface, s: GameState, player_i: int,
@@ -160,8 +160,7 @@ class RegionRoll(RollScreen):
             assert len(roll) == 3, "Must roll 3 for region"
             # TODO: Flash regions on LEDs
             return s.lookup_roll_table('REGION', *roll)
-        super().__init__(screen, 3, f'{player_n} > {tag}', handler,
-            odd_even_die=True, **kwargs)
+        super().__init__(screen, 3, f'{player_n} > {tag}', handler, **kwargs)
 
 class CityRoll(RollScreen):
     def __init__(self, screen: pg.surface.Surface, s: GameState, player_i: int,
@@ -171,8 +170,8 @@ class CityRoll(RollScreen):
             assert len(roll) == 3, "Must roll 3 for region"
             # TODO: Flash cities on LEDs
             return s.lookup_roll_table(region, *roll)
-        super().__init__(screen, 3, f'{player_n} > {tag}', handler,
-            odd_even_die=True, wait_for_user=False, **kwargs)
+        super().__init__(screen, 3, f'{player_n} > {tag}', handler, 
+            wait_for_user=False, **kwargs)
 
 if __name__ == '__main__':
     pg.init()
