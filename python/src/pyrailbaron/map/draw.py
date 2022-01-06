@@ -369,7 +369,7 @@ def draw_led_circle(
         mask_layer: MapSvgLayer,
         bottom_layer: MapSvgLayer,
         p: Coordinate, r: float, stroke_width: float):
-    top_layer.circle(p, r, stroke='black', fill='white'
+    top_layer.circle(p, r, stroke='black', fill='white',
         stroke_width=stroke_width, 
         stroke_linecap='round', stroke_linejoin='round')
     mask_layer.circle(p, r-stroke_width/2, **LC_PARAMS)
@@ -380,7 +380,7 @@ def draw_led_square(
         mask_layer: MapSvgLayer,
         bottom_layer: MapSvgLayer,
         p: Coordinate, s: float, stroke_width: float):
-    top_layer.square(p, s, 0, stroke='black', fill='white'
+    top_layer.square(p, s, 0, stroke='black', fill='white',
         stroke_width=stroke_width, stroke_linecap='round', stroke_linejoin='round')
     mask_layer.square(p, s-stroke_width, 0, **LC_PARAMS)
     bottom_layer.circle(p, LED_R, **LC_PARAMS)
