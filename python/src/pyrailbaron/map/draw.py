@@ -183,11 +183,13 @@ def main(root_dir: Path):
             rr_data = rr_patterns[rr]
             draw_rr_label(rr_data, label_layer, text, x, y)
     
-    label_layer.transforms.clear()
-    label_layer.text("RAIL BARON", (510,365), 
+    logo_layer = svg.map_layer('logo')
+    logo_layer.transforms.clear()
+    logo_layer.text("RAIL BARON", (510,365), 
         font_family='Corrigan ExtraBold', font_size='30px', 
         stroke=LOGO_COLOR, fill=LOGO_COLOR)
-    draw_player_labels(label_layer, alum_layer, acr_layer)
+    
+    draw_player_labels(svg, alum_layer, acr_layer)
 
     draw_legend(rr_patterns, svg, alum_layer, acr_layer)
     draw_blackout_layer(svg)
@@ -283,7 +285,9 @@ def draw_7segment_leds(layer: MapSvgLayer, **kwargs: Any):
                 (x,y), (x+LED_7SEG_W,y), (x+LED_7SEG_W, y+LED_7SEG_H), 
                 (x, y+LED_7SEG_H), (x,y)], **kwargs)
 
-def draw_player_labels(label_layer: MapSvgLayer, alum_layer: MapSvgLayer, acr_layer: MapSvgLayer):
+def draw_player_labels(svg: MapSvg, alum_layer: MapSvgLayer, acr_layer: MapSvgLayer):
+    label_layer = svg.map_layer('player_label')
+    label_layer.transforms.clear()
     start_x = TOUCHSCREEN_MX + TOUCHSCREEN_W + LED_TOUCHSCREEN_M + LED_7SEG_W/2 - LED_7SEG_LABEL_W/2
     start_y = MAX_SVG_HEIGHT - TOUCHSCREEN_MY - LED_7SEG_H - 4*LED_7SEG_MY - LED_7SEG_LABEL_H
     i = 1
@@ -365,7 +369,7 @@ def draw_led_circle(
         mask_layer: MapSvgLayer,
         bottom_layer: MapSvgLayer,
         p: Coordinate, r: float, stroke_width: float):
-    top_layer.circle(p, r, stroke='black', fill='white', 
+    top_layer.circle(p, r, stroke='black', fill='white'
         stroke_width=stroke_width, 
         stroke_linecap='round', stroke_linejoin='round')
     mask_layer.circle(p, r-stroke_width/2, **LC_PARAMS)
@@ -376,7 +380,7 @@ def draw_led_square(
         mask_layer: MapSvgLayer,
         bottom_layer: MapSvgLayer,
         p: Coordinate, s: float, stroke_width: float):
-    top_layer.square(p, s, 0, stroke='black', fill='white',
+    top_layer.square(p, s, 0, stroke='black', fill='white'
         stroke_width=stroke_width, stroke_linecap='round', stroke_linejoin='round')
     mask_layer.square(p, s-stroke_width, 0, **LC_PARAMS)
     bottom_layer.circle(p, LED_R, **LC_PARAMS)
@@ -520,5 +524,5 @@ def get_parallels(p1: Coordinate, p2: Coordinate, n: int, spacing: float) \
 
 if __name__ == '__main__':
     ROOT_DIR = (Path(__file__) / '../../../../..').resolve()
-    #main(ROOT_DIR)
+    main(ROOT_DIR)
     test_piece(ROOT_DIR)

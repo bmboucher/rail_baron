@@ -172,7 +172,7 @@ class CLI_Interface(Interface):
         curr_pt = ps.location
         for _ in range(d):           
             moves = calculate_legal_moves(s.map, ps._startCityIndex, 
-                ps.history + waypoints, dest_i)
+                ps.history + waypoints, dest_i, ps.rover_play_index)
             assert len(moves) > 0, "Must have at least one legal move!"
             if len(moves) == 1:
                 print(f'AUTO >> {move_str(moves[0])}')

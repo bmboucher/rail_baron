@@ -8,10 +8,11 @@ from datetime import timedelta
 from pathlib import Path
 
 def quick_network_distance(m: Map, start_pt: int, dest_pt: int, history: List[Waypoint] = []) -> int:
+    curr_pt = start_pt if len(history) ==  0 else history[-1][1]
+    if curr_pt == dest_pt:
+        return 0
     search_paths: Deque[List[Waypoint]] = deque()
     pts_searched: Set[int] = set()
-
-    curr_pt = start_pt if len(history) ==  0 else history[-1][1]
     rail_segs_used = rail_segs_from_wps(start_pt, history)
 
     for start_step in get_valid_waypoints(m, curr_pt, rail_segs_used):
@@ -21,6 +22,8 @@ def quick_network_distance(m: Map, start_pt: int, dest_pt: int, history: List[Wa
     while len(search_paths) > 0:
         base_path = search_paths.popleft()
         end_pt = base_path[-1][1]
+        if end_pt == dest_pt:
+            return len(base_path)
         rail_segs_used = rail_segs_from_wps(start_pt, history + base_path)
         next_wp = get_valid_waypoints(m, end_pt, rail_segs_used, pts_searched)
         for rr, next_pt in next_wp:

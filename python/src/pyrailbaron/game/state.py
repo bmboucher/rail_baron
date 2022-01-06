@@ -151,7 +151,8 @@ class PlayerState:
             alt_used_segs = rail_segs_from_wps(rover_pt, self.history[self.rover_play_index + 1:])
         seg_miles: float = 0.0
         for rr, next_pt in waypoints:
-            assert next_pt in m.points[curr_pt].connections[rr], "Must take a valid RR connection"
+            assert rr in m.points[curr_pt].connections, f"Can't take {rr} from {curr_pt}"
+            assert next_pt in m.points[curr_pt].connections[rr], f"Can't take {rr} from {curr_pt} to {next_pt}"
             rs = make_rail_seg(rr, curr_pt, next_pt)
             if rs in used_segs:
                 # This had to be added to cover the corner case that a player

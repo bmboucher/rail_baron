@@ -12,6 +12,8 @@ def calculate_user_fees(m: Map, player_i: int,
         waypoints: List[Waypoint], player_rr: List[List[str]],
         init_rr: str | None, established_rate: int | None = None,
         doubleFees: bool = False) -> Tuple[List[int], int | None]:
+    if len(waypoints) == 0:
+        return [0] * len(player_rr), established_rate
     def get_owner(rr: str) -> int:
         for i, rr_owned in enumerate(player_rr):
             if rr in rr_owned:

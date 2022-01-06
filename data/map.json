@@ -6111,7 +6111,7 @@
         "St. Paul"
       ],
       "geonames_lookup": "City of Minneapolis",
-      "place_name": "Minneapolis St. Paul",
+      "place_name": "Minneapolis",
       "state": "MN",
       "region": "PLAINS",
       "geo_coords": [
@@ -6549,7 +6549,7 @@
       ],
       "city_names": [],
       "geonames_lookup": "Township of North Campbell Number 1",
-      "place_name": "North Campbell Number 1",
+      "place_name": "North Campbell",
       "state": "MO",
       "geo_coords": [
         37.23622512005439,
@@ -11790,7 +11790,7 @@
         "Oakland"
       ],
       "geonames_lookup": "City of San Francisco",
-      "place_name": "San Francisco Oakland",
+      "place_name": "San Francisco",
       "state": "CA",
       "region": "SOUTHWEST",
       "geo_coords": [

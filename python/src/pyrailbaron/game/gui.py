@@ -74,11 +74,10 @@ class PyGame_Interface(Interface):
         home_region = s.map.points[s.players[player_i].location].region
         assert home_region, "Must know start region to get destination"
 
-        roll_screen = RegionRoll(self.screen, s, player_i, 'DEST REGION')
-        roll_screen.run()
-        dest_region = roll_screen.result
+        dest_region = home_region
         while dest_region == home_region:
             # TODO: Implement region selection screen
+            roll_screen = RegionRoll(self.screen, s, player_i, 'DEST REGION')
             roll_screen.run()
             dest_region = roll_screen.result
         assert dest_region, "Must have dest region after roll"
