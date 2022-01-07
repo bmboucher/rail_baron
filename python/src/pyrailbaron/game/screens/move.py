@@ -1,14 +1,15 @@
 from pyrailbaron.game.screens.base import PyGameScreen
 from pyrailbaron.game.state import GameState, PlayerState
-from pyrailbaron.map.datamodel import Coordinate, Waypoint, make_rail_seg, rail_segs_from_wps
+from pyrailbaron.map.datamodel import Waypoint
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 from pyrailbaron.game.moves import get_legal_moves_with_scores, MoveReport
 from pyrailbaron.game.fees import calculate_user_fees
+from pyrailbaron.game.screens.map import draw_map
 
 from enum import Enum, auto
 
 import pygame as pg
-from typing import List, Set, Tuple
+from typing import List, Set
 from time import time
 
 FORCED_MOVE_TIME = 1.0
@@ -171,7 +172,6 @@ class MoveScreen(PyGameScreen):
         assert index >= 0 and index < len(self._options), f"Selected index {index} not in range"
         wp = self._options[index].move
         self.selected_moves.append(wp)
-        print(self.selected_moves)
         self._finished = (wp[1] == self.dest_index or len(self.selected_moves) == self.distance)
         if not self._finished:
             self.calculate_options()
@@ -301,72 +301,9 @@ class MoveScreen(PyGameScreen):
             [self.start_loc, self.dest_index]
                 + [p for _,p in self.selected_moves]
                 + [r.move[1] for r in self._options])
-        pt_coords: List[Coordinate|None] = [
-            self.state.map.points[pt].final_svg_coords for pt in pts_to_include]
-        min_bounds = [min([p[i] for p in pt_coords if p]) for i in range(2)]
-        max_bounds = [max([p[i] for p in pt_coords if p]) for i in range(2)]
-        src_size = [(M - m)*MAP_EXPANSION 
-            for M,m in zip(max_bounds, min_bounds)]
-        dest_size = [MAP_W, MAP_H]
-        scale = min(d/s for d,s in zip(dest_size, src_size) if s != 0)
-        src_size = [d/scale for d in dest_size]
-        src_base = [(M + m - s)/2 for M,m,s in zip(max_bounds, min_bounds, src_size)]
-        def transform(pt_i: int) -> Tuple[int,int]:
-            p = self.state.map.points[pt_i].final_svg_coords
-            assert p, "Must have SVG coords"
-            return int(scale*(p[0] - src_base[0])), int(scale*(p[1] - src_base[1]))
-        buffer = pg.surface.Surface((MAP_W, MAP_H))
-        def draw_pt(pt_i: int) -> bool:
-            t_x, t_y = transform(pt_i)
-            return (t_x >= 0 and t_x <= MAP_W and t_y >= 0 and t_y <= MAP_H)
-        pts_to_draw = list(filter(draw_pt, range(len(self.state.map.points))))
-        
-        def make_pair(pt_i: int, pt_j: int) -> Tuple[int, int]:
-            return (pt_i, pt_j) if pt_i < pt_j else (pt_j, pt_i)
-        curr_pt = self.start_loc
-        pairs: List[Tuple[int, int]] = []
-        pts_traveled: Set[int] = set([curr_pt])
-        for _, next_pt in self.turn_history:
-            pts_traveled.add(next_pt)
-            pairs.append(make_pair(curr_pt, next_pt)); curr_pt = next_pt
-
-        used_rail_segs = rail_segs_from_wps(self.start_loc, self.selected_moves)
-        next_rr, next_pt = self.next_selected_move
-        if self.curr_loc != next_pt:
-            next_rail_seg = make_rail_seg(next_rr, self.curr_loc, next_pt)
-        else:
-            next_rail_seg = None
-        for p in self.state.map.points:
-            for conn_pt in p.pts_connected_to:
-                if p.index < conn_pt:
-                    continue
-                if p.index in pts_to_draw or conn_pt in pts_to_draw:
-                    c1 = transform(p.index)
-                    c2 = transform(conn_pt)
-                    rail_segs = [make_rail_seg(rr,p.index,conn_pt) for rr in p.connections
-                        if conn_pt in p.connections[rr]]
-                    color = PROG_UNCOMPLETED_COLOR
-                    line_w = MAP_LINE_W
-                    if next_rail_seg and next_rail_seg in rail_segs:
-                        color = NEXT_MOVE_COLOR
-                        line_w = NEXT_MOVE_LINE_W
-                    elif any(rs in used_rail_segs for rs in rail_segs):
-                        color = PROG_COMPLETED_COLOR
-                    pg.draw.line(buffer, color, c1, c2, line_w)
-        for p in pts_to_draw:
-            c = transform(p)
-            color = PROG_COMPLETED_COLOR if p in pts_traveled else PROG_UNCOMPLETED_COLOR
-            if p == self.start_loc:
-                color = pg.Color(0, 255, 0)
-            elif p == self.dest_index:
-                color = pg.Color(255, 0, 0)
-            elif p == self.next_selected_move[1]:
-                color = NEXT_MOVE_COLOR
-            if len(self.state.map.points[p].city_names) > 0:
-                pg.draw.rect(buffer, color,
-                    pg.Rect(c[0] - MAP_PT_R, c[1] - MAP_PT_R, 2*MAP_PT_R, 2*MAP_PT_R), 0)
-            else:
-                pg.draw.circle(buffer, color, c, MAP_PT_R, 0)
+        buffer = draw_map(self.state.map, pts_to_include, (MAP_W, PROGRESS_T),
+            self.start_loc, self.selected_moves, self.dest_index,
+            [r.move for r in self._options], self._current_selection)
         self.screen.blit(buffer, (0,0))
 
     def draw_borders(self):

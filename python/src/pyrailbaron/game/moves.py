@@ -24,11 +24,7 @@ def calculate_legal_moves(m: Map, start_pt: int, history: List[Waypoint], dest_p
     def check_for_trapped(pt_i: int) -> bool:
         if pt_i == curr_pt or pt_i == dest_pt:
             return False
-        if len(valid_wp(pt_i)) < 2:
-            print(f'Point {m.points[pt_i].display_name} ({pt_i}) is trapped')
-            return True
-        else:
-            return False
+        return len(valid_wp(pt_i)) < 2
     trapped_pts += list(filter(check_for_trapped, 
         [start_pt] + [p for _,p in history]))
 
@@ -49,26 +45,8 @@ def calculate_legal_moves(m: Map, start_pt: int, history: List[Waypoint], dest_p
 
     # We can't generally exclude "dead ends" like Tampa/Norfolk because they might
     # be our destination
-    valid_moves: List[Waypoint] = []
-    for rr in m.points[curr_pt].connections:
-        for next_pt in m.points[curr_pt].connections[rr]:
-            if make_rail_seg(rr, curr_pt, next_pt) in rail_segs_used:
-                print(f"Can't take {rr} to {next_pt} - already used")
-            elif next_pt in trapped_pts:
-                print(f"Can't take {rr} to {next_pt} - trapped")
-            elif next_pt == dest_pt:
-                print(f'Adding {rr} to {next_pt} - is destination')
-                valid_moves.append((rr,next_pt))
-            else:
-                next_legal_moves = valid_wp(next_pt)
-                if len(next_legal_moves) > 1:
-                    valid_moves.append((rr, next_pt))
-                else:
-                    print(f"Can't take {rr} to {next_pt} - no legal moves from there")
-
-    test_valid_moves = [wp for wp in valid_wp(curr_pt)
+    valid_moves = [wp for wp in valid_wp(curr_pt)
         if wp[1] == dest_pt or len(valid_wp(wp[1])) > 1]
-    assert valid_moves == test_valid_moves
     if len(valid_moves) == 0 and rover_play_index > 0:
         rover_start_pt = history[rover_play_index][1]
         valid_moves = calculate_legal_moves(m, rover_start_pt, 
@@ -113,7 +91,6 @@ def get_legal_moves_with_scores(
     reports = list(map(score, moves))
     for r in reports:
         if r.dest_dist < 0:
-            print(f'Removing {r.move[0]} to {r.move[1]} - dd < 0')
             reports.remove(r)
     def sort_key(r: MoveReport) -> Tuple[int, int, int]:
         return (0 if r.move[1] == dest_pt else 1,   # Rank all moves to dest 1st
