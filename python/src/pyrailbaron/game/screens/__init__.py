@@ -9,3 +9,4 @@ from pyrailbaron.game.screens.roll import (
 )
 from pyrailbaron.game.screens.keyboard import KeyboardScreen
 from pyrailbaron.game.screens.move import MoveScreen
+from pyrailbaron.game.screens.select import PurchaseSelectScreen

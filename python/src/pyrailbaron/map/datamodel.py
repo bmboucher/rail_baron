@@ -62,6 +62,7 @@ class Railroad:
     shortName: str
     longName: str
     cost: int
+    triangles: List[Tuple[int, int, int]] | None = None
 
 @dataclass_json
 @dataclass

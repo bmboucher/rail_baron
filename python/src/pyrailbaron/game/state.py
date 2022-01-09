@@ -247,7 +247,7 @@ class GameState:
         return self.lookup_roll_table(table, 
             randint(1,6), randint(1,6), randint(1,6))
 
-    def get_player_purchase_opts(self, player_i: int) -> List[Tuple[str, int]]:
+    def get_player_purchase_opts(self, player_i: int, sort: bool = False) -> List[Tuple[str, int]]:
         ps = self.players[player_i]
         options: List[Tuple[str, int]] = []
         if ps.engine == Engine.Basic and ps.bank >= EXPRESS_FEE:
@@ -257,4 +257,6 @@ class GameState:
         for rr, rr_data in self.map.railroads.items():
             if self.get_owner(rr) == -1 and ps.bank >= rr_data.cost:
                 options.append((rr, rr_data.cost))
+        if sort:
+            options = list(sorted(options, key = lambda o: o[1]))
         return options

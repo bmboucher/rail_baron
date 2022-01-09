@@ -1,0 +1,182 @@
+from pyrailbaron.game.screens.base import PyGameScreen
+from pyrailbaron.game.state import Engine, GameState, PlayerState
+from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
+
+from typing import List, Any, Tuple
+import pygame as pg
+from enum import Enum, auto
+
+BUTTON_W = 250
+BUTTON_SPACING = 10
+
+COST_H = 40
+OPT_W = SCREEN_W - BUTTON_W
+OPT_H = SCREEN_H - COST_H
+COST_M = 20
+LOGO_W = 350
+LOGO_H = 275
+LOGO_PAD = 10
+LABEL_LOGO_SEP = 10
+
+LABEL_FONT = 'Corrigan-ExtraBold'
+BUTTON_FONT_SIZE = 45
+BUY_NOTHING_SIZE = 65
+OPT_FONT_SIZE = 35
+COST_FONT_SIZE = 30
+MAX_CHUNK_SIZE = 25
+
+BUY_COLOR = pg.Color(255,255,0)
+OPT_COLOR = pg.Color(255,255,255)
+COST_COLOR = pg.Color(255,0,0)
+AVAIL_COLOR = pg.Color(125,125,125)
+
+class SelectScreen(PyGameScreen):
+    def __init__(self, screen: pg.surface.Surface, options: List[Any]):
+        super().__init__(screen)
+        self.options = options
+        self._selected_index = 0
+
+    class Buttons(Enum):
+        Up = auto()
+        Down = auto()
+        Select = auto()
+
+    @property
+    def selected(self) -> Any:
+        return self.options[self._selected_index]
+
+    def draw_option(self):
+        pass
+
+    def draw_button(self, label: str, bounds: pg.Rect):
+        buffer = pg.surface.Surface(bounds.size)
+        w, h = bounds.size
+        button_color = pg.Color(0, 255, 0) if label == SelectScreen.Buttons.Select.name else pg.Color(200,200,200)
+        pg.draw.rect(buffer, button_color, (0,0,w,h), 0, 10)
+        if label == SelectScreen.Buttons.Select.name:
+            self.draw_text('SELECT', LABEL_FONT, BUTTON_FONT_SIZE,
+                pg.Rect(0, 0, w, h), buffer=buffer)
+        else:
+            pg.draw.polygon(buffer, pg.Color(0,0,0),
+                [(0.5*w, 0.2*h), (0.7*w, 0.8*h), (0.3*w, 0.8*h)], 0)
+            if label == SelectScreen.Buttons.Down.name:
+                buffer = pg.transform.flip(buffer, False, True)
+        self.screen.blit(buffer, bounds.topleft)
+
+    def up(self):
+        if self._selected_index + 1 < len(self.options):
+            self._selected_index += 1
+        else:
+            self._selected_index = 0
+
+    def down(self):
+        if self._selected_index > 0:
+            self._selected_index -= 1
+        else:
+            self._selected_index = len(self.options) - 1
+
+    def draw(self, init: bool):
+        self.solid_background()
+        self.draw_option()
+        if init:
+            self.buttons.clear()
+            button_l = SCREEN_W - BUTTON_W + BUTTON_SPACING
+            button_t = BUTTON_SPACING
+            button_w = BUTTON_W - 2 * BUTTON_SPACING
+            button_h = (SCREEN_H - 4 * BUTTON_SPACING) // 3
+            self.add_button(SelectScreen.Buttons.Up.name, 
+                pg.Rect(button_l, button_t, button_w, button_h), self.up)
+            button_t += BUTTON_SPACING + button_h
+            self.add_button(SelectScreen.Buttons.Down.name, 
+                pg.Rect(button_l, button_t, button_w, button_h), self.down)
+            button_t += BUTTON_SPACING + button_h
+            self.add_button(SelectScreen.Buttons.Select.name, 
+                pg.Rect(button_l, button_t, button_w, button_h), close_after=True)
+
+class PurchaseSelectScreen(SelectScreen):
+    def __init__(self, screen: pg.surface.Surface, s: GameState, player_i: int, user_fee: int):
+        options: List[Tuple[str, int] | None] = \
+            s.get_player_purchase_opts(player_i, True) # type: ignore
+        options.insert(0, None)
+        super().__init__(screen, options)
+        self.map = s.map
+        self.available = s.players[player_i].bank + user_fee
+
+    def draw_option(self):
+        opt_rect = pg.Rect(0, 0, OPT_W, OPT_H)
+        selected: Tuple[str, int] | None = self.selected
+        if not selected:
+            self.draw_text('BUY\nNOTHING', LABEL_FONT, BUY_NOTHING_SIZE,
+                opt_rect, BUY_COLOR)
+            price = 0
+        else:
+            opt, price = selected
+
+            if opt in [Engine.Express.name, Engine.Superchief.name]:
+                labelText = f'BUY {opt.upper()}\n'
+                if opt == Engine.Express.name:
+                    labelText += 'Adds a bonus roll\nafter rolling doubles'
+                else:
+                    labelText += 'Adds a bonus roll\non every turn'
+            else:
+                assert opt in self.map.railroads, "Option must be a RR"
+                rr = self.map.railroads[opt]
+                
+                labelText = f'BUY {rr.shortName}\n'
+                chunk = ''
+                for word in rr.longName.split(' '):
+                    if word in ['&', '-']:
+                        chunk += ' ' + word
+                    else:
+                        if len(chunk) + len(word) + 1 <= MAX_CHUNK_SIZE:
+                            chunk = f'{chunk} {word}'
+                        else:
+                            labelText += f'{chunk}\n'
+                            chunk = word
+                labelText += chunk
+
+        
+            label_w, label_h = self.calculate_text_size(labelText,
+                LABEL_FONT, OPT_FONT_SIZE, OPT_W)
+            
+            total_opt_h = LOGO_H + LABEL_LOGO_SEP + label_h
+            logo_t = (OPT_H - total_opt_h) // 2
+            logo_l = (OPT_W - LOGO_W) // 2
+            self.screen.fill(pg.Color(255,255,255),
+                pg.Rect(logo_l, logo_t, LOGO_W, LOGO_H))
+            self.screen.blit(self.load_image(f'rr_logos/{opt.lower()}.png', 
+                (LOGO_W - 2 * LOGO_PAD, LOGO_H - 2 * LOGO_PAD)),
+                (logo_l + LOGO_PAD, logo_t + LOGO_PAD))
+
+            label_t = logo_t + LOGO_H + LABEL_LOGO_SEP
+            label_l = (OPT_W - label_w) // 2
+            self.draw_text(labelText, LABEL_FONT, OPT_FONT_SIZE,
+                pg.Rect(label_l, label_t, label_w, label_h),
+                [BUY_COLOR] + [OPT_COLOR] * 4)
+
+            label_m = SCREEN_H - COST_H//2
+            costLabel = f'COST {price}'
+            label_w, _ = self.calculate_text_size(costLabel,
+                LABEL_FONT, COST_FONT_SIZE, OPT_W // 2)
+            self.draw_text(costLabel, LABEL_FONT, COST_FONT_SIZE,
+                pg.Rect(COST_M, label_m, label_w, 0), COST_COLOR)
+
+        availLabel = f'{self.available} AVAILABLE'
+        label_m = SCREEN_H - COST_H//2
+        label_w, _ = self.calculate_text_size(availLabel,
+            LABEL_FONT, COST_FONT_SIZE, OPT_W // 2)
+        self.draw_text(availLabel, LABEL_FONT, COST_FONT_SIZE,
+            pg.Rect(OPT_W - COST_M - label_w, label_m, label_w, 0), AVAIL_COLOR)
+
+if __name__ == '__main__':
+    pg.init()
+    screen = pg.display.set_mode((SCREEN_W, SCREEN_H))
+    while True:
+        ps = PlayerState(0, 'TEST')
+        s = GameState()
+        s.players.append(ps)
+        ps.bank = 100000
+
+        ss = PurchaseSelectScreen(screen, s, 0, 10000)
+        ss.run()
+        print(ss.selected)

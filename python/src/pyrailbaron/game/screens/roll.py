@@ -9,7 +9,7 @@ from typing import Callable, List, Tuple, Any
 from random import randint
 from time import time
 
-START_ROLL_TIME = 0.1
+START_ROLL_TIME = 0.9
 ROLL_INC_FACTOR = 1.25
 END_ROLL_TIME = 1.0
 DISPLAY_WAIT_TIME = 0.25
@@ -31,8 +31,7 @@ ROLL_LABEL_TOP = (SCREEN_H - LABEL_D)//2
 RESULT_TOP = (SCREEN_H + LABEL_D)//2
 
 STR_RESULTS = [
-    None, None,
-    'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX',
+    None, 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX',
     'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE']
 
 def draw_die(screen: pg.surface.Surface, c_x: int, c_y: int, n: int,

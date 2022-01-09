@@ -34,6 +34,33 @@ def quick_network_distance(m: Map, start_pt: int, dest_pt: int, history: List[Wa
                 pts_searched.add(next_pt)
     return -1
 
+def points_within(m: Map, start_pt: int, dest_pt: int, history: List[Waypoint], d: int) -> Set[int]:
+    curr_pt = start_pt if len(history) ==  0 else history[-1][1]
+    if curr_pt == dest_pt:
+        return set([dest_pt])
+    search_paths: Deque[List[Waypoint]] = deque()
+    pts_searched: Set[int] = set()
+    rail_segs_used = rail_segs_from_wps(start_pt, history)
+
+    for start_step in get_valid_waypoints(m, curr_pt, rail_segs_used):
+        search_paths.append([start_step])
+    pts_searched.add(curr_pt)
+
+    while len(search_paths) > 0:
+        base_path = search_paths.popleft()
+        end_pt = base_path[-1][1]
+        if end_pt == dest_pt:
+            pts_searched.add(dest_pt)
+            continue
+        if len(base_path) < d:
+            rail_segs_used = rail_segs_from_wps(start_pt, history + base_path)
+            next_wp = get_valid_waypoints(m, end_pt, rail_segs_used, pts_searched)
+            for rr, next_pt in next_wp:
+                if next_pt != dest_pt:
+                    search_paths.append(base_path + [(rr, next_pt)])
+                pts_searched.add(next_pt)
+    return pts_searched
+
 # Returns the list of shortest paths from pt_from to pt_to
 def breadth_first_search(
         m: Map, pt_from: int, pt_to: int, 

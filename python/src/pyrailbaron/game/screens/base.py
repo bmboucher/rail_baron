@@ -10,7 +10,7 @@ from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 class Button:
     label: str
     bounds: pg.Rect
-    handler: Callable[[], None]
+    handler: Callable[[], None]|None = None
     _id: str|None = None
 
     @property
@@ -29,12 +29,14 @@ class PyGameScreen:
         self.start_t = time()
         self._active: bool = True
 
-    def add_button(self, label: str, bounds: pg.Rect, handler: Callable[[], None],
+    def add_button(self, label: str, bounds: pg.Rect, 
+            handler: Callable[[], None] | None = None,
             close_after: bool = False):
         _handler = handler
         if close_after:
             def wrapped():
-                handler()
+                if handler:
+                    handler()
                 self._active = False
             _handler = wrapped
         self.draw_button(label, bounds)
@@ -105,32 +107,50 @@ class PyGameScreen:
             self.fonts[key] = pg.font.SysFont(font, font_size)
         return self.fonts[key]
 
-    def draw_text(self, text: str, font: str, font_size: int, bounds: pg.rect.Rect,
-            color: pg.Color = pg.Color(0, 0, 0), line_spacing: float = 1.25,
-            buffer: pg.surface.Surface|None = None) -> Tuple[int, int]:
+    def render_text(self, text: str, font: str, font_size: int, max_w: int,
+            color: pg.Color | List[pg.Color] = pg.Color(0, 0, 0), 
+            line_spacing: float = 1.25) \
+                -> Tuple[List[pg.surface.Surface],Tuple[int,int]]:
         assert line_spacing >= 1.0, "Line spacing can't be <1"
         def get_w():
             pg_font = self.get_font(font, font_size)
-            labels = [pg_font.render(line, True, color) for
-                line in text.split('\n')]
+            if isinstance(color, list):
+                labels = [pg_font.render(line, True, color[i % len(color)], None) for
+                    i, line in enumerate(text.split('\n'))]
+            else:
+                labels = [pg_font.render(line, True, color, None) for
+                    line in text.split('\n')]
             label_w = max(l.get_width() for l in labels)
             return labels, label_w
         labels, label_w = get_w()
-        while label_w > bounds.width:
+        while label_w > max_w:
             font_size -= 1
             labels, label_w = get_w()
         
         label_h = (
             int(line_spacing * sum(l.get_height() for l in labels[:-1])) 
              + labels[-1].get_height())
-        start_x = bounds.left + (bounds.w - label_w) // 2
-        start_y = bounds.top + (bounds.h - label_h) // 2
-        buffer = buffer or self.screen
+        return labels, (label_w, label_h)
+
+    def calculate_text_size(self, text: str, font: str, font_size: int, max_w: int, line_spacing: float = 1.25) -> Tuple[int,int]:
+        _, size = self.render_text(text, font, font_size, max_w,
+            pg.Color(0,0,0), line_spacing)
+        return size
+
+    def draw_text(self, text: str, font: str, font_size: int, bounds: pg.rect.Rect,
+            color: pg.Color | List[pg.Color] = pg.Color(0, 0, 0), line_spacing: float = 1.25,
+            buffer: pg.surface.Surface|None = None) -> Tuple[int, int]:
+        labels, (label_w, label_h) = self.render_text(
+            text, font, font_size, bounds.width,
+            color, line_spacing)
+        assert label_w <= bounds.width, "Rendered label too wide"
+        label_t = bounds.top + (bounds.height - label_h) // 2
+        _buffer = buffer or self.screen
         for label in labels:
-            pad = (label_w - label.get_width()) // 2
-            buffer.blit(label, (start_x + pad, start_y))
-            start_y += int(line_spacing * label.get_height())
-        return label_w, label_h
+            label_l = bounds.left + (bounds.width - label.get_width()) // 2
+            _buffer.blit(label, (label_l, label_t))
+            label_t += int(line_spacing * label.get_height())
+        return (label_w, label_h)
 
     def run(self):
         self._active = True
@@ -154,7 +174,8 @@ class PyGameScreen:
                     x, y = pg.mouse.get_pos()
                     for button in self.buttons:
                         if button.bounds.contains(pg.Rect(x-1,y-1,2,2)):
-                            button.handler()
+                            if button.handler:
+                                button.handler()
                             _draw(False)
                             break
             if self.animate():

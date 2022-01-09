@@ -2,14 +2,14 @@ from pyrailbaron.game.screens.base import PyGameScreen
 from pyrailbaron.game.state import GameState, PlayerState
 from pyrailbaron.map.datamodel import Waypoint
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
-from pyrailbaron.game.moves import get_legal_moves_with_scores, MoveReport
+from pyrailbaron.game.moves import calculate_legal_moves, get_legal_moves_with_scores, MoveReport
 from pyrailbaron.game.fees import calculate_user_fees
 from pyrailbaron.game.screens.map import draw_map
 
 from enum import Enum, auto
 
 import pygame as pg
-from typing import List, Set
+from typing import List
 from time import time
 
 FORCED_MOVE_TIME = 1.0
@@ -72,7 +72,7 @@ class MoveScreen(PyGameScreen):
         assert player_i >=0 and player_i < len(s.players), \
             f'Player index {player_i} not in range'
         self.player_i = player_i
-        assert d >= 2, "Minimum roll is 2"
+        assert d > 0, "Roll must be positive"
         self.distance = d
         self.init_rr = init_rr
         self.moves_so_far = moves_so_far
@@ -129,19 +129,26 @@ class MoveScreen(PyGameScreen):
             pt_x = PROGRESS_M + pt * progress_d
             if pt < self.distance:
                 color = (PROG_COMPLETED_COLOR if pt < len(self.selected_moves) 
+                    else pg.Color(255,255,0) if pt == len(self.selected_moves)
                     else PROG_UNCOMPLETED_COLOR)
                 pg.draw.line(prog_surf, color,
                     (pt_x, PROGRESS_MID), (pt_x + progress_d, PROGRESS_MID),
                     PROG_LINE_W)
-            if pt <= len(self.selected_moves):
-                loc = self.start_loc if pt == 0 else self.selected_moves[pt - 1][1]
+            if pt <= len(self.selected_moves) + 1:
+                if pt < len(self.selected_moves) + 1:
+                    loc = self.start_loc if pt == 0 else self.selected_moves[pt - 1][1]
+                    color = PROG_COMPLETED_COLOR
+                else:
+                    loc = self.next_selected_move[1]
+                    color = pg.Color(255,255,0)
+                if loc == self.dest_index:
+                    color = PROG_DEST_COLOR
                 if len(self.state.map.points[loc].city_names) > 0:
-                    color = PROG_DEST_COLOR if loc == self.dest_index else PROG_COMPLETED_COLOR
                     pg.draw.rect(prog_surf, color,
                         pg.Rect(pt_x - PROGRESS_IND_R, PROGRESS_MID - PROGRESS_IND_R,
                                 2*PROGRESS_IND_R, 2*PROGRESS_IND_R), 0)
                 else:                    
-                    pg.draw.circle(prog_surf, PROG_COMPLETED_COLOR, 
+                    pg.draw.circle(prog_surf, color, 
                         (pt_x, PROGRESS_MID), PROGRESS_IND_R, 0)
             else:
                 pg.draw.circle(prog_surf, PROG_UNCOMPLETED_COLOR, 
@@ -297,12 +304,12 @@ class MoveScreen(PyGameScreen):
         self.screen.blit(opt_buffer, (MAP_W, 0))
 
     def draw_map(self):
-        pts_to_include: Set[int] = set(
-            [self.start_loc, self.dest_index]
-                + [p for _,p in self.selected_moves]
-                + [r.move[1] for r in self._options])
-        buffer = draw_map(self.state.map, pts_to_include, (MAP_W, PROGRESS_T),
-            self.start_loc, self.selected_moves, self.dest_index,
+        history = self.player.history + self.selected_moves
+        moves_this_turn = self.moves_so_far + len(self.selected_moves)
+        moves_remaining = self.distance - len(self.selected_moves)
+        buffer = draw_map(self.state.map, (MAP_W, PROGRESS_T),
+            self.player.startCityIndex, history, self.dest_index,
+            moves_this_turn, moves_remaining,
             [r.move for r in self._options], self._current_selection)
         self.screen.blit(buffer, (0,0))
 
@@ -360,6 +367,9 @@ if __name__ == '__main__':
         s.set_player_destination(0, dest)
 
         print(f'Generating test move from {home_city} ({home_city_i}) to {dest} ({dest_i})')
+
+        for _ in range(2):
+            ps.history.append(calculate_legal_moves(s.map, ps.startCityIndex, ps.history, ps.destinationIndex, -1)[0])
         move_screen = MoveScreen(screen, s, 0, 12, None, 0)
         move_screen.run()
         print(move_screen.selected_moves)

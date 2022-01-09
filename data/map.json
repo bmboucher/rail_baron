@@ -23,7 +23,8 @@
     "cbq": {
       "shortName": "CB&Q",
       "longName": "Chicago, Burlington, & Quincy",
-      "cost": 20000
+      "cost": 20000,
+      "triangles": [[271,277,278]]
     },
     "cmstpp": {
       "shortName": "CMSTP&P",
@@ -33,7 +34,8 @@
     "cnw": {
       "shortName": "C&NW",
       "longName": "Chicago & NorthWestern",
-      "cost": 14000
+      "cost": 14000,
+      "triangles": [[270,271,272]]
     },
     "co": {
       "shortName": "C&O",
@@ -63,12 +65,14 @@
     "ic": {
       "shortName": "IC",
       "longName": "Illinois Central",
-      "cost": 14000
+      "cost": 14000,
+      "triangles": [[168,167,169]]
     },
     "mp": {
       "shortName": "MP",
       "longName": "Missouri Pacific",
-      "cost": 21000
+      "cost": 21000,
+      "triangles": [[241,238,242]]
     },
     "ln": {
       "shortName": "L&N",
@@ -78,7 +82,8 @@
     "np": {
       "shortName": "NP",
       "longName": "Northern Pacific",
-      "cost": 14000
+      "cost": 14000,
+      "triangles": [[354,343,355]]
     },
     "nw": {
       "shortName": "N&W",
@@ -108,17 +113,20 @@
     "sal": {
       "shortName": "SAL",
       "longName": "Seaboard Air Line",
-      "cost": 14000
+      "cost": 14000,
+      "triangles": [[15,9,109]]
     },
     "sou": {
       "shortName": "SOU",
       "longName": "Southern",
-      "cost": 20000
+      "cost": 20000,
+      "triangles": [[148,149,150]]
     },
     "sp": {
       "shortName": "SP",
       "longName": "Southern Pacific",
-      "cost": 42000
+      "cost": 42000,
+      "triangles": [[401,399,400]]
     },
     "slsf": {
       "shortName": "SLSF",
@@ -138,7 +146,8 @@
     "wp": {
       "shortName": "WP",
       "longName": "Western Pacific",
-      "cost": 8000
+      "cost": 8000,
+      "triangles": [[404,402,403]]
     }
   },
   "points": [
@@ -3713,6 +3722,7 @@
       "geonames_lookup": "City of Houston",
       "place_name": "Houston",
       "state": "TX",
+      "region": "SOUTH CENTRAL",
       "geo_coords": [
         29.78721,
         -95.39369
@@ -8815,7 +8825,7 @@
       ],
       "city_names": [],
       "geonames_lookup": "Township of Solomon-District 3",
-      "place_name": "Solomon-District 3",
+      "place_name": "Solomon",
       "state": "KS",
       "geo_coords": [
         39.707475492144745,

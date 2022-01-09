@@ -8,7 +8,8 @@ from pyrailbaron.teensy.serial import Serial
 import pygame as pg
 
 from pyrailbaron.game.screens import (
-    SplashScreen, MainMenuScreen, RollScreen, RegionRoll, CityRoll, KeyboardScreen)
+    SplashScreen, MainMenuScreen, RollScreen, RegionRoll, CityRoll, KeyboardScreen,
+    PurchaseSelectScreen)
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 
 from typing import List, Tuple
@@ -150,9 +151,13 @@ class PyGame_Interface(Interface):
         pass
 
     def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> str|None:
-        # TODO: Implement
-        pg.quit()
-        exit()
+        ps = PurchaseSelectScreen(self.screen, s, player_i, user_fee)
+        ps.run()
+        opt: Tuple[str, int]|None = ps.selected
+        if opt:
+            return opt[0]
+        else:
+            return None
 
     def ask_to_declare(self, s: GameState, player_i: int) -> bool:
         # TODO: Implement
