@@ -10,7 +10,7 @@ import pygame as pg
 from pyrailbaron.game.screens import (
     SplashScreen, MainMenuScreen, RollScreen, RegionRoll, CityRoll, KeyboardScreen,
     PurchaseSelectScreen, RegionSelectScreen, AnnounceTurnScreen, AnnounceArrivalScreen,
-    AnnouncePayoffScreen, SellOrAuctionScreen)
+    AnnouncePayoffScreen, SellOrAuctionScreen, AuctionScreen)
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 
 from typing import List, Tuple
@@ -147,14 +147,21 @@ class PyGame_Interface(Interface):
     def ask_to_auction(self, s: GameState, player_i: int, rr_to_sell: str) -> bool:
         rr_name = s.map.railroads[rr_to_sell].shortName
         min_amt = s.map.railroads[rr_to_sell].cost // 2
+        if not any(ps.index != player_i and ps.bank >= min_amt
+            for ps in s.players):
+            return False
         soa_screen = SellOrAuctionScreen(self.screen, rr_name, min_amt)
         soa_screen.run()
         return soa_screen.do_auction
 
     def ask_for_bid(self, s: GameState, selling_player_i: int, bidding_player_i: int, rr_to_sell: str, min_bid: int) -> int:
-        # TODO: Implement
-        pg.quit()
-        exit()
+        ps = s.players[bidding_player_i]
+        if ps.bank < min_bid:
+            return 0
+        rr_name = s.map.railroads[rr_to_sell].shortName
+        auct_screen = AuctionScreen(self.screen, ps.name, rr_name, min_bid, ps.bank)
+        auct_screen.run()
+        return auct_screen.bid
 
     def announce_sale(self, s: GameState, seller_i: int, buyer_i: int, rr: str, price: int):
         # TODO: Implement

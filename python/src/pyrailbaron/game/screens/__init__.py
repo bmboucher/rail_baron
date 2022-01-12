@@ -17,3 +17,4 @@ from pyrailbaron.game.screens.announce import (
     AnnouncePayoffScreen
 )
 from pyrailbaron.game.screens.sell_or_auction import SellOrAuctionScreen
+from pyrailbaron.game.screens.auction import AuctionScreen
