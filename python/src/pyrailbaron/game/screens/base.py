@@ -21,11 +21,12 @@ FRAME_RATE = 30
 ASSETS_DIR = (Path(__file__) / '../../assets').resolve()
 
 class PyGameScreen:
+    fonts: Dict[str, pg.font.Font] = {}
+
     def __init__(self, screen: pg.surface.Surface):
         self.screen = screen
         self.buttons: List[Button] = []
         self.images: Dict[str, pg.surface.Surface] = {}
-        self.fonts: Dict[str, pg.font.Font] = {}
         self.start_t = time()
         self._active: bool = True
 
@@ -93,27 +94,30 @@ class PyGameScreen:
         return True
 
     def close(self):
+        self.buttons.clear()
         assert self._active, "Can only close once"
         self._active = False
 
-    def get_font(self, font: str, font_size: int) -> pg.font.Font:
+    @staticmethod
+    def get_font(font: str, font_size: int) -> pg.font.Font:
         key = f'{font}/{font_size}'
-        if key not in self.fonts:
+        if key not in PyGameScreen.fonts:
             for font_ext in ['otf', 'ttf']:
                 font_path = (ASSETS_DIR / f'{font}.{font_ext}')
                 if font_path.exists():
-                    self.fonts[key] = pg.font.Font(font_path, font_size); break
-        if key not in self.fonts:
-            self.fonts[key] = pg.font.SysFont(font, font_size)
-        return self.fonts[key]
+                    PyGameScreen.fonts[key] = pg.font.Font(font_path, font_size); break
+        if key not in PyGameScreen.fonts:
+            PyGameScreen.fonts[key] = pg.font.SysFont(font, font_size)
+        return PyGameScreen.fonts[key]
 
-    def render_text(self, text: str, font: str, font_size: int, max_w: int,
+    @staticmethod
+    def render_text(text: str, font: str, font_size: int, max_w: int,
             color: pg.Color | List[pg.Color] = pg.Color(0, 0, 0), 
             line_spacing: float = 1.25) \
                 -> Tuple[List[pg.surface.Surface],Tuple[int,int]]:
         assert line_spacing >= 1.0, "Line spacing can't be <1"
         def get_w():
-            pg_font = self.get_font(font, font_size)
+            pg_font = PyGameScreen.get_font(font, font_size)
             if isinstance(color, list):
                 labels = [pg_font.render(line, True, color[i % len(color)], None) for
                     i, line in enumerate(text.split('\n'))]
@@ -132,22 +136,23 @@ class PyGameScreen:
              + labels[-1].get_height())
         return labels, (label_w, label_h)
 
-    def calculate_text_size(self, text: str, font: str, font_size: int, max_w: int, line_spacing: float = 1.25) -> Tuple[int,int]:
-        _, size = self.render_text(text, font, font_size, max_w,
+    @staticmethod
+    def calculate_text_size(text: str, font: str, font_size: int, max_w: int, line_spacing: float = 1.25) -> Tuple[int,int]:
+        _, size = PyGameScreen.render_text(text, font, font_size, max_w,
             pg.Color(0,0,0), line_spacing)
         return size
 
     def draw_text(self, text: str, font: str, font_size: int, bounds: pg.rect.Rect,
             color: pg.Color | List[pg.Color] = pg.Color(0, 0, 0), line_spacing: float = 1.25,
-            buffer: pg.surface.Surface|None = None) -> Tuple[int, int]:
+            buffer: pg.surface.Surface|None = None, center: bool = True) -> Tuple[int, int]:
         labels, (label_w, label_h) = self.render_text(
             text, font, font_size, bounds.width,
             color, line_spacing)
         assert label_w <= bounds.width, "Rendered label too wide"
-        label_t = bounds.top + (bounds.height - label_h) // 2
+        label_t = bounds.top + (bounds.height - label_h) // 2 if center else bounds.top
         _buffer = buffer or self.screen
         for label in labels:
-            label_l = bounds.left + (bounds.width - label.get_width()) // 2
+            label_l = bounds.left + (bounds.width - label.get_width()) // 2 if center else bounds.left
             _buffer.blit(label, (label_l, label_t))
             label_t += int(line_spacing * label.get_height())
         return (label_w, label_h)

@@ -1,6 +1,6 @@
 from pyrailbaron.game.screens.base import PyGameScreen
 from pyrailbaron.game.state import Engine, GameState, PlayerState
-from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
+from pyrailbaron.game.constants import SCREEN_W, SCREEN_H, REGIONS
 
 from typing import List, Any, Tuple
 import pygame as pg
@@ -94,26 +94,33 @@ class SelectScreen(PyGameScreen):
                 pg.Rect(button_l, button_t, button_w, button_h), close_after=True)
 
 class PurchaseSelectScreen(SelectScreen):
-    def __init__(self, screen: pg.surface.Surface, s: GameState, player_i: int, user_fee: int):
-        options: List[Tuple[str, int] | None] = \
-            s.get_player_purchase_opts(player_i, True) # type: ignore
-        options.insert(0, None)
+    def __init__(self, screen: pg.surface.Surface, s: GameState, player_i: int, 
+            user_fee: int = 0, sell_flag: bool = False, amt_required: int = 0):
+        options: List[Tuple[str, int] | None]
+        if sell_flag:
+            options = s.get_player_sell_opts(player_i, True) # type: ignore
+        else:
+            options = s.get_player_purchase_opts(player_i, True) # type: ignore
+            options.insert(0, None)
         super().__init__(screen, options)
         self.map = s.map
         self.available = s.players[player_i].bank + user_fee
+        self.amt_required = amt_required
+        self.sell_flag = sell_flag
 
     def draw_option(self):
         opt_rect = pg.Rect(0, 0, OPT_W, OPT_H)
         selected: Tuple[str, int] | None = self.selected
+        BS = 'SELL' if self.sell_flag else 'BUY'
         if not selected:
-            self.draw_text('BUY\nNOTHING', LABEL_FONT, BUY_NOTHING_SIZE,
+            self.draw_text(f'{BS}\nNOTHING', LABEL_FONT, BUY_NOTHING_SIZE,
                 opt_rect, BUY_COLOR)
             price = 0
         else:
             opt, price = selected
 
             if opt in [Engine.Express.name, Engine.Superchief.name]:
-                labelText = f'BUY {opt.upper()}\n'
+                labelText = f'{BS} {opt.upper()}\n'
                 if opt == Engine.Express.name:
                     labelText += 'Adds a bonus roll\nafter rolling doubles'
                 else:
@@ -122,7 +129,7 @@ class PurchaseSelectScreen(SelectScreen):
                 assert opt in self.map.railroads, "Option must be a RR"
                 rr = self.map.railroads[opt]
                 
-                labelText = f'BUY {rr.shortName}\n'
+                labelText = f'{BS} {rr.shortName}\n'
                 chunk = ''
                 for word in rr.longName.split(' '):
                     if word in ['&', '-']:
@@ -135,8 +142,7 @@ class PurchaseSelectScreen(SelectScreen):
                             chunk = word
                 labelText += chunk
 
-        
-            label_w, label_h = self.calculate_text_size(labelText,
+            label_w, label_h = PyGameScreen.calculate_text_size(labelText,
                 LABEL_FONT, OPT_FONT_SIZE, OPT_W)
             
             total_opt_h = LOGO_H + LABEL_LOGO_SEP + label_h
@@ -155,18 +161,27 @@ class PurchaseSelectScreen(SelectScreen):
                 [BUY_COLOR] + [OPT_COLOR] * 4)
 
             label_m = SCREEN_H - COST_H//2
-            costLabel = f'COST {price}'
-            label_w, _ = self.calculate_text_size(costLabel,
+            costLabel = f'{"MIN" if self.sell_flag else "COST"} {price}'
+            label_w, _ = PyGameScreen.calculate_text_size(costLabel,
                 LABEL_FONT, COST_FONT_SIZE, OPT_W // 2)
             self.draw_text(costLabel, LABEL_FONT, COST_FONT_SIZE,
                 pg.Rect(COST_M, label_m, label_w, 0), COST_COLOR)
 
-        availLabel = f'{self.available} AVAILABLE'
+        availLabel = (f'{self.amt_required} REQUIRED' if self.sell_flag 
+            else f'{self.available} AVAILABLE')
         label_m = SCREEN_H - COST_H//2
-        label_w, _ = self.calculate_text_size(availLabel,
+        label_w, _ = PyGameScreen.calculate_text_size(availLabel,
             LABEL_FONT, COST_FONT_SIZE, OPT_W // 2)
         self.draw_text(availLabel, LABEL_FONT, COST_FONT_SIZE,
             pg.Rect(OPT_W - COST_M - label_w, label_m, label_w, 0), AVAIL_COLOR)
+
+class RegionSelectScreen(SelectScreen):
+    def __init__(self, screen: pg.surface.Surface):
+        super().__init__(screen, REGIONS)
+
+    def draw_option(self):
+        self.draw_text(self.selected.replace(' ','\n'), LABEL_FONT, 100,
+            pg.Rect(50,0,OPT_W-100,SCREEN_H), pg.Color(255,255,255))
 
 if __name__ == '__main__':
     pg.init()
@@ -177,6 +192,7 @@ if __name__ == '__main__':
         s.players.append(ps)
         ps.bank = 100000
 
-        ss = PurchaseSelectScreen(screen, s, 0, 10000)
+        #ss = PurchaseSelectScreen(screen, s, 0, 10000)
+        ss = RegionSelectScreen(screen)
         ss.run()
         print(ss.selected)

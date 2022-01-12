@@ -1,11 +1,12 @@
 from pathlib import Path
 import pygame as pg
+from pyrailbaron.game.screens.base import PyGameScreen
 from pyrailbaron.map.bfs import points_within
 
 from pyrailbaron.map.datamodel import (
     Coordinate, Map, Waypoint, make_rail_seg, rail_segs_from_wps)
 from typing import Callable, List, Tuple, Set
-from math import sin, cos, pi, atan2, tan
+from math import sin, cos, pi, atan2, tan, sqrt
 
 DEFAULT_MAP_PATH = (Path(__file__) / '../../assets/map.png').resolve()
 
@@ -38,6 +39,9 @@ NEXT_MOVE_COLOR = pg.Color(255, 255, 0)
 START_PT_COLOR = pg.Color(0, 255, 0)
 TURN_START_PT_COLOR = pg.Color(0,0,255)
 DEST_PT_COLOR = pg.Color(255, 0, 0)
+
+OTH_PLAYER_F = 1.2
+OTH_PLAYER_W = 1
 
 def get_map_window(m: Map, show_pts: Set[int], size: Tuple[int,int]) -> pg.rect.Rect:
     map_img = get_map_image()
@@ -140,7 +144,8 @@ def draw_star(buffer: pg.surface.Surface, pt: Coordinate,
 def draw_map(m: Map, size: Tuple[int, int],
         start_pt: int, history: List[Waypoint], dest_pt: int, 
         moves_this_turn: int, moves_remaining: int,
-        next_points: List[Waypoint], next_point_selected: int) -> pg.surface.Surface:
+        next_points: List[Waypoint], next_point_selected: int,
+        other_player_loc: List[Tuple[str,int]]) -> pg.surface.Surface:
     map_img = get_map_image()
     window = optimize_map_window(m, size, start_pt, history, dest_pt, 
         moves_this_turn, moves_remaining, next_points)
@@ -274,28 +279,46 @@ def draw_map(m: Map, size: Tuple[int, int],
         w, h = size
         c_x, c_y = w/2, h/2
         d_x, d_y = transform(dest_pt)
-        a = atan2(d_y - c_y, d_x - c_x)
+        angles = atan2(d_y - c_y, d_x - c_x)
         tip_x, tip_y = 0,0
-        if -pi/4 <= a and a < pi/4:
+        if -pi/4 <= angles and angles < pi/4:
             tip_x = w
-            tip_y = c_y + (w/2) * tan(a)
-        elif pi/4 <= a and a < 3 * pi/4:
+            tip_y = c_y + (w/2) * tan(angles)
+        elif pi/4 <= angles and angles < 3 * pi/4:
             tip_y = h
-            tip_x = w/2 + (h/2) * tan(pi/2 - a)
-        elif 3 * pi/4 <= a or a < -3 * pi/4:
+            tip_x = w/2 + (h/2) * tan(pi/2 - angles)
+        elif 3 * pi/4 <= angles or angles < -3 * pi/4:
             tip_x = 0
-            tip_y = h/2 - (w/2) * tan(a)
-        elif -3 * pi/4 <= a and a < -pi/4:
+            tip_y = h/2 - (w/2) * tan(angles)
+        elif -3 * pi/4 <= angles and angles < -pi/4:
             tip_y = 0
-            tip_x = w/2 - (h/2) * tan(pi/2 - a)
-        tip_x -= DEST_ARROW_PAD * cos(a)
-        tip_y -= DEST_ARROW_PAD * sin(a)
-        base_x = tip_x - DEST_ARROW_L * cos(a)
-        base_y = tip_y - DEST_ARROW_L * sin(a)
+            tip_x = w/2 - (h/2) * tan(pi/2 - angles)
+        tip_x -= DEST_ARROW_PAD * cos(angles)
+        tip_y -= DEST_ARROW_PAD * sin(angles)
+        base_x = tip_x - DEST_ARROW_L * cos(angles)
+        base_y = tip_y - DEST_ARROW_L * sin(angles)
         pts = [(tip_x, tip_y), 
-                (base_x - (DEST_ARROW_W/2)*sin(a), base_y + (DEST_ARROW_W/2) * cos(a)),
-                (base_x + (DEST_ARROW_W/2)*sin(a), base_y - (DEST_ARROW_W/2) * cos(a))]
+                (base_x - (DEST_ARROW_W/2)*sin(angles), base_y + (DEST_ARROW_W/2) * cos(angles)),
+                (base_x + (DEST_ARROW_W/2)*sin(angles), base_y - (DEST_ARROW_W/2) * cos(angles))]
         pg.draw.polygon(buffer, pg.Color(255, 0, 0), pts, 0)
         pg.draw.polygon(buffer, pg.Color(0, 0, 0), pts, 5)
+
+    for oth_pn, oth_loc in other_player_loc:
+        if in_window(oth_loc):
+            c_x, c_y = transform(oth_loc)
+            s = int(OTH_PLAYER_F * MARKER_OUTER_R * px_per_mm)
+            angles = [15 * pi/180, pi/4]
+            angles.append(pi/2 - angles[0])
+            radii = [s, s * 2 / sqrt(2), s]
+            a_offset = 0
+            for _ in range(4):
+                pts = [(c_x + r * cos(a + a_offset), c_y + r * sin(a + a_offset)) 
+                        for r,a in zip(radii, angles)]
+                pg.draw.lines(buffer, pg.Color(255, 0, 0), False, pts, 
+                    int(OTH_PLAYER_W * px_per_mm))
+                a_offset += pi/2
+            [label, ], (label_w, label_h) = PyGameScreen.render_text(
+                oth_pn, 'Corrigan-ExtraBold', 20, 5 * s, pg.Color(255,0,0))
+            buffer.blit(label, (c_x - label_w/2, c_y - s - 2 - label_h))
 
     return buffer

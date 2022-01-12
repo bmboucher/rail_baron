@@ -178,7 +178,7 @@ def raise_funds(s: GameState, i: Interface, player_i: int, min_amt: int):
     amt_raised = 0
 
     while amt_raised < min_amt and len(s.players[player_i].rr_owned) > 0:
-        rr_to_sell = i.select_rr_to_sell(s, player_i)
+        rr_to_sell = i.select_rr_to_sell(s, player_i, min_amt - amt_raised)
         assert rr_to_sell in s.players[player_i].rr_owned, "Must own RR to sell it"
         min_sell_amt = s.map.railroads[rr_to_sell].cost // 2
 

@@ -9,7 +9,8 @@ import pygame as pg
 
 from pyrailbaron.game.screens import (
     SplashScreen, MainMenuScreen, RollScreen, RegionRoll, CityRoll, KeyboardScreen,
-    PurchaseSelectScreen)
+    PurchaseSelectScreen, RegionSelectScreen, AnnounceTurnScreen, AnnounceArrivalScreen,
+    AnnouncePayoffScreen, SellOrAuctionScreen)
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 
 from typing import List, Tuple
@@ -69,18 +70,20 @@ class PyGame_Interface(Interface):
 
     def announce_turn(self, s: GameState, player_i: int):
         Serial.set_active_player(player_i, len(s.players))
-        # TODO: Implement turn info screen
+        ann = AnnounceTurnScreen(self.screen, s, player_i)
+        ann.run()
 
     def get_destination(self, s: GameState, player_i: int) -> str:
         home_region = s.map.points[s.players[player_i].location].region
         assert home_region, "Must know start region to get destination"
 
-        dest_region = home_region
-        while dest_region == home_region:
-            # TODO: Implement region selection screen
-            roll_screen = RegionRoll(self.screen, s, player_i, 'DEST REGION')
-            roll_screen.run()
-            dest_region = roll_screen.result
+        roll_screen = RegionRoll(self.screen, s, player_i, 'DEST REGION')
+        roll_screen.run()
+        dest_region = roll_screen.result
+        if dest_region == home_region:
+            reg_sel_screen = RegionSelectScreen(self.screen)
+            reg_sel_screen.run()
+            dest_region = reg_sel_screen.selected
         assert dest_region, "Must have dest region after roll"
 
         roll_screen = CityRoll(self.screen, s, player_i, dest_region, 'DESTINATION')
@@ -124,18 +127,29 @@ class PyGame_Interface(Interface):
         # TODO: Implement
         pass
 
-    def select_rr_to_sell(self, s: GameState, player_i: int) -> str:
-        # TODO: Implement
-        pg.quit()
-        exit()
+    def select_rr_to_sell(self, s: GameState, player_i: int, amt_required: int) -> str:
+        assert len(s.players[player_i].rr_owned) > 0, "Must have at least 1 RR to sell"
+        sell_screen = PurchaseSelectScreen(self.screen, s, player_i, 0, True)
+        sell_screen.run()
+        return sell_screen.selected[0]
 
     def announce_route_payoff(self, s: GameState, player_i: int, payoff: int):
-        # TODO: Implement
-        pass
+        ps = s.players[player_i]
+        loc = s.map.points[ps.location]
+        city_name = ps.destination
+        assert city_name in loc.city_names, "Should only announce route payoff at destination"
+        arr_screen = AnnounceArrivalScreen(self.screen, city_name)
+        arr_screen.run()
+
+        payoff_screen = AnnouncePayoffScreen(self.screen, s, player_i)
+        payoff_screen.run()
 
     def ask_to_auction(self, s: GameState, player_i: int, rr_to_sell: str) -> bool:
-        # TODO: Implement
-        return False
+        rr_name = s.map.railroads[rr_to_sell].shortName
+        min_amt = s.map.railroads[rr_to_sell].cost // 2
+        soa_screen = SellOrAuctionScreen(self.screen, rr_name, min_amt)
+        soa_screen.run()
+        return soa_screen.do_auction
 
     def ask_for_bid(self, s: GameState, selling_player_i: int, bidding_player_i: int, rr_to_sell: str, min_bid: int) -> int:
         # TODO: Implement
@@ -151,6 +165,8 @@ class PyGame_Interface(Interface):
         pass
 
     def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> str|None:
+        if len(s.get_player_purchase_opts(player_i)) == 0:
+            return None
         ps = PurchaseSelectScreen(self.screen, s, player_i, user_fee)
         ps.run()
         opt: Tuple[str, int]|None = ps.selected

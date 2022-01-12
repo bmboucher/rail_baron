@@ -58,7 +58,7 @@ class Interface(ABC):
 
     # Select a railroad to sell when raising funds
     @abstractmethod
-    def select_rr_to_sell(self, s: GameState, player_i: int) -> str:
+    def select_rr_to_sell(self, s: GameState, player_i: int, amt_required: int) -> str:
         pass
 
     @abstractmethod

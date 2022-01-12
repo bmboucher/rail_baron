@@ -260,3 +260,10 @@ class GameState:
         if sort:
             options = list(sorted(options, key = lambda o: o[1]))
         return options
+
+    def get_player_sell_opts(self, player_i: int, sort: bool = False) -> List[Tuple[str, int]]:
+        ps = self.players[player_i]
+        opts = [(rr, self.map.railroads[rr].cost // 2) for rr in ps.rr_owned]
+        if sort:
+            opts = list(sorted(opts, key = lambda o: o[1]))
+        return opts

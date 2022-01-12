@@ -1,3 +1,5 @@
+from typing import List
+
 # TODO: Move these to a config and allow them to be changed
 INITIAL_BANK = 20000
 MIN_CASH_TO_WIN = 200000
@@ -10,3 +12,7 @@ SUPERCHIEF_FEE = 40000
 
 SCREEN_W: int = 800
 SCREEN_H: int = 480
+
+REGIONS: List[str] = [
+    'NORTHWEST','SOUTHWEST','PLAINS',
+    'NORTH CENTRAL','SOUTH CENTRAL','NORTHEAST','SOUTHEAST']

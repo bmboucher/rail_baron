@@ -167,7 +167,7 @@ class MoveScreen(PyGameScreen):
         ps = self.state.players[self.player_i]
         moves_this_turn = self.moves_so_far + len(self.selected_moves)
         player_rr = [p.rr_owned for p in self.state.players]
-        self._options = get_legal_moves_with_scores(m, self.start_loc,
+        self._options = get_legal_moves_with_scores(m, self.player.startCityIndex,
             self.player.history + self.selected_moves, 
             ps.destinationIndex, ps.rover_play_index, moves_this_turn,
             player_rr, self.player_i, self.init_rr, self.established_rate,
@@ -307,10 +307,13 @@ class MoveScreen(PyGameScreen):
         history = self.player.history + self.selected_moves
         moves_this_turn = self.moves_so_far + len(self.selected_moves)
         moves_remaining = self.distance - len(self.selected_moves)
+        other_play_loc = [(ps.name, ps.location) for ps in self.state.players
+            if ps.index != self.player_i]
         buffer = draw_map(self.state.map, (MAP_W, PROGRESS_T),
             self.player.startCityIndex, history, self.dest_index,
             moves_this_turn, moves_remaining,
-            [r.move for r in self._options], self._current_selection)
+            [r.move for r in self._options], 
+            self._current_selection, other_play_loc)
         self.screen.blit(buffer, (0,0))
 
     def draw_borders(self):
@@ -353,23 +356,25 @@ if __name__ == '__main__':
     pg.init()
     screen = pg.display.set_mode((SCREEN_W, SCREEN_H))
     while True:
-        ps = PlayerState(0, 'TEST')
         s = GameState()
-        s.players.append(ps)
-        home_region = s.random_lookup('REGION')
-        home_city, home_city_i = s.map.lookup_city(s.random_lookup(home_region))
-        s.set_player_home_city(0, home_city)
+        for p_i in range(6):
+            ps = PlayerState(p_i, f'PLAYER {p_i}')
+            s.players.append(ps)
+            home_region = s.random_lookup('REGION')
+            home_city, home_city_i = s.map.lookup_city(s.random_lookup(home_region))
+            s.set_player_home_city(p_i, home_city)
 
-        dest_region = s.random_lookup('REGION')
-        while dest_region == home_region:
             dest_region = s.random_lookup('REGION')
-        dest, dest_i = s.map.lookup_city(s.random_lookup(dest_region))
-        s.set_player_destination(0, dest)
+            while dest_region == home_region:
+                dest_region = s.random_lookup('REGION')
+            dest, dest_i = s.map.lookup_city(s.random_lookup(dest_region))
+            s.set_player_destination(p_i, dest)
+            print(f'Generating test move from {home_city} ({home_city_i}) to {dest} ({dest_i})')
 
-        print(f'Generating test move from {home_city} ({home_city_i}) to {dest} ({dest_i})')
-
-        for _ in range(2):
-            ps.history.append(calculate_legal_moves(s.map, ps.startCityIndex, ps.history, ps.destinationIndex, -1)[0])
+            for _ in range(2):
+                ps.history.append(
+                    calculate_legal_moves(s.map, ps.startCityIndex, 
+                        ps.history, ps.destinationIndex, -1)[0])
         move_screen = MoveScreen(screen, s, 0, 12, None, 0)
         move_screen.run()
         print(move_screen.selected_moves)

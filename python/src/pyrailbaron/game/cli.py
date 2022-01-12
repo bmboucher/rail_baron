@@ -1,5 +1,5 @@
 #pyright: reportPrivateUsage=information
-from pyrailbaron.game.constants import MIN_CASH_TO_WIN
+from pyrailbaron.game.constants import MIN_CASH_TO_WIN, REGIONS
 from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.state import GameState, Waypoint
 from pyrailbaron.game.moves import calculate_legal_moves
@@ -22,9 +22,6 @@ def roll3() -> Tuple[int, int, int]:
     print(f'  ROLLS: {rolls}')
     return rolls
 
-REGIONS: List[str] = [
-    'NORTHWEST','SOUTHWEST','PLAINS',
-    'NORTH CENTRAL','SOUTH CENTRAL','NORTHEAST','SOUTHEAST']
 REROLL_REGIONS: Dict[str, str] = {
     'NORTHWEST': 'SOUTHEAST',
     'SOUTHWEST':'NORTHEAST',
@@ -211,10 +208,10 @@ class CLI_Interface(Interface):
         ps = s.players[player_i]
         print(f'{ps.name} >> FUNDS OF {ps.bank} ARE INSUFFICIENT BY {amt}')
 
-    def select_rr_to_sell(self, s: GameState, player_i: int) -> str:
+    def select_rr_to_sell(self, s: GameState, player_i: int, amt_required: int) -> str:
         ps = s.players[player_i]
         assert len(ps.rr_owned) > 0, "Can't ask to sell RRs when none owned"
-        print(f'{ps.name} >> SELECT A RAILROAD TO SELL')
+        print(f'{ps.name} >> SELECT A RAILROAD TO SELL ({amt_required} NEEDED)')
         if self.auto_move:
             most_expensive: str | None = None
             highest_price: int | None = None
