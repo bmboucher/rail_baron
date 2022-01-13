@@ -4,9 +4,10 @@ from pyrailbaron.game.moves import get_legal_moves_with_scores
 
 import pygame as pg
 from time import time
+from random import shuffle, randint
 
 from pyrailbaron.game.state import GameState, PlayerState
-from typing import Tuple
+from typing import Tuple, List
 
 OK_BUTTON_W = 130
 OK_BUTTON_H = 40
@@ -190,6 +191,41 @@ class AnnouncePayoffScreen(AnnounceScreen):
                 else pg.Color(255,255,255))
             pg.draw.circle(self.screen, color, transform(i), 4, 0)
 
+ANNOUNCE_ORDER_TIME = 3.0
+PLAYER_LABEL_FONT_SIZE = 40
+PLAYER_LABEL_W = 250
+PLAYER_LABEL_M = 40
+PLAYER_NAME_FONT_SIZE = 60
+PLAYER_ROW_SEP = 50
+
+class AnnounceOrderScreen(AnnounceScreen):
+    def __init__(self, screen: pg.surface.Surface, names: List[str]):
+        super().__init__(screen, ANNOUNCE_ORDER_TIME)
+        self.names = names
+
+    def paint(self):
+        labels: List[pg.surface.Surface] = []
+        for i, name in enumerate(self.names):
+            [pl, ], (pl_w, pl_h) = self.render_text(f'PLAYER {i+1}',
+                'Corrigan-ExtraBold', PLAYER_LABEL_FONT_SIZE, 
+                PLAYER_LABEL_W - PLAYER_LABEL_M, pg.Color(255,255,0))
+            [pn, ], (_, pn_h) = self.render_text(name,
+                'Corrigan-ExtraBold', PLAYER_NAME_FONT_SIZE,
+                SCREEN_W - PLAYER_LABEL_W - PLAYER_LABEL_M, pg.Color(255,255,255))
+            buf_h = max(pl_h, pn_h)
+            buffer = pg.surface.Surface((SCREEN_W, buf_h))
+            buffer.fill(pg.Color(0,0,0))
+            buffer.blit(pl, (PLAYER_LABEL_W - pl_w, (buf_h - pl_h) / 2))
+            buffer.blit(pn, (PLAYER_LABEL_W + PLAYER_LABEL_M, (buf_h - pn_h)/2))
+            labels.append(buffer)
+        self.screen.fill(pg.Color(0,0,0))
+        total_label_h = (sum(l.get_height() for l in labels) 
+            + (len(self.names) - 1) * PLAYER_ROW_SEP)
+        label_t = (SCREEN_H - total_label_h)/2
+        for label in labels:
+            self.screen.blit(label, (0, label_t))
+            label_t += label.get_height() + PLAYER_ROW_SEP
+
 if __name__ == '__main__':
     pg.init()
     test_s = pg.display.set_mode((SCREEN_W, SCREEN_H))
@@ -214,6 +250,12 @@ if __name__ == '__main__':
                 ps.destinationIndex, -1, moves_this_turn, [[]], 0, None, None, False)
             ps.history.append(moves[0].move)
         ps.bank = 25500
+
+        names = ["ALEX","BRIAN","CHRIS","DENNIS"]
+        shuffle(names)
+        names = names[:randint(2,4)]
+        order_screen = AnnounceOrderScreen(test_s, names)
+        order_screen.run()
 
         turn_screen = AnnounceTurnScreen(test_s, s, 0)
         turn_screen.run()

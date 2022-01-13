@@ -10,7 +10,8 @@ import pygame as pg
 from pyrailbaron.game.screens import (
     SplashScreen, MainMenuScreen, RollScreen, RegionRoll, CityRoll, KeyboardScreen,
     PurchaseSelectScreen, RegionSelectScreen, AnnounceTurnScreen, AnnounceArrivalScreen,
-    AnnouncePayoffScreen, SellOrAuctionScreen, AuctionScreen, DeclareScreen)
+    AnnouncePayoffScreen, SellOrAuctionScreen, AuctionScreen, DeclareScreen,
+    AnnounceOrderScreen)
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 
 from typing import List, Tuple
@@ -50,8 +51,9 @@ class PyGame_Interface(Interface):
         return keyboard.text
 
     def announce_player_order(self, s: GameState):
-        # TODO: Implement as a screen
-        pass
+        names = [ps.name for ps in s.players]
+        ord_screen = AnnounceOrderScreen(self.screen, names)
+        ord_screen.run()
 
     def get_home_city(self, s: GameState, player_i: int) -> str:
         Serial.set_active_player(player_i, len(s.players))
