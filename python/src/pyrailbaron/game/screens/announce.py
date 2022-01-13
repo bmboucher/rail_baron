@@ -1,10 +1,10 @@
 from pyrailbaron.game.screens.base import PyGameScreen
-from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
+from pyrailbaron.game.constants import ROVER_PLAY_FEE, SCREEN_W, SCREEN_H
 from pyrailbaron.game.moves import get_legal_moves_with_scores
 
 import pygame as pg
 from time import time
-from random import shuffle, randint
+from random import shuffle, randint, choice
 
 from pyrailbaron.game.state import GameState, PlayerState
 from typing import Tuple, List
@@ -13,6 +13,7 @@ OK_BUTTON_W = 130
 OK_BUTTON_H = 40
 OK_BUTTON_M = 10
 OK_BUTTON_R = 10
+OK_BUTTON_T = SCREEN_H - OK_BUTTON_H - OK_BUTTON_M
 OK_BUTTON_PROG_COLOR = pg.Color(0, 200, 0)
 OK_BUTTON_COLOR = pg.Color(100, 255, 100)
 OK_BUTTON_FONT = 'Corrigan-ExtraBold'
@@ -226,6 +227,10 @@ class AnnounceOrderScreen(AnnounceScreen):
             self.screen.blit(label, (0, label_t))
             label_t += label.get_height() + PLAYER_ROW_SEP
 
+FULL_SCREEN_M = 20
+FULL_SCREEN_B = pg.Rect(FULL_SCREEN_M, FULL_SCREEN_M,
+    SCREEN_W - 2 * FULL_SCREEN_M, SCREEN_H - FULL_SCREEN_M - OK_BUTTON_H - OK_BUTTON_M - FULL_SCREEN_M)
+
 ANNOUNCE_SHORTFALL_TIME = 5.0
 class AnnounceShortfallScreen(AnnounceScreen):
     def __init__(self, screen: pg.surface.Surface, 
@@ -241,12 +246,59 @@ class AnnounceShortfallScreen(AnnounceScreen):
         if len(self.rr_owned) == 0:
             shortfall_msg += 'No railroads to sell\nBank will cover fees'
         elif len(self.rr_owned) == 1:
-            shortfall_msg += f'Forced to sell {self.rr_owned[0]}\nMinimum sale {self.rr_sell_value}'
+            shortfall_msg += f'Forced to sell {self.rr_owned[0]}'
         else:
-            shortfall_msg += f'Sell up to {len(self.rr_owned)} railroads\nMinimum sale {self.rr_sell_value}'
+            shortfall_msg += f'Sell up to {len(self.rr_owned)} railroads'
         self.screen.fill(pg.Color(200, 20,20))
         self.draw_text(shortfall_msg, 'Corrigan-ExtraBold', 60,
-            self.screen.get_bounding_rect(), [pg.Color(255,255,255)]*2 + [pg.Color(255,255,0)] + [pg.Color(0,0,0)]*2)
+            FULL_SCREEN_B, [pg.Color(255,255,255)]*2 + [pg.Color(255,255,0)] + [pg.Color(0,0,0)]*2)
+
+ANNOUNCE_SALE_TIME = 2.0
+class AnnounceSaleScreen(AnnounceScreen):
+    def __init__(self, screen: pg.surface.Surface,
+        seller_name: str, buyer_name: str, rr_name: str, sale_amt: int):
+        super().__init__(screen, ANNOUNCE_SALE_TIME)
+        self.msg = f'{seller_name} SELLS\n{rr_name} TO {buyer_name}\nFOR {sale_amt}'
+    
+    def paint(self):
+        self.screen.fill(pg.Color(30, 100, 30))
+        self.draw_text(self.msg, 'Corrigan-ExtraBold', 70,
+            FULL_SCREEN_B, pg.Color(0,0,0))
+
+ANNOUNCE_UNDECLARED_TIME = 2.0
+class AnnounceUndeclaredScreen(AnnounceScreen):
+    def __init__(self, screen: pg.surface.Surface, player_name: str):
+        super().__init__(screen, ANNOUNCE_UNDECLARED_TIME)
+        self.msg = f'{player_name} IS NO\nLONGER\nDECLARED'
+
+    def paint(self):
+        self.screen.fill(pg.Color(200, 20,20))
+        self.draw_text(self.msg, 'Corrigan-ExtraBold', 100,
+            FULL_SCREEN_B, pg.Color(0,0,0))
+
+ANNOUNCE_ROVER_TIME = 4.0
+class AnnounceRoverScreen(AnnounceScreen):
+    def __init__(self, screen: pg.surface.Surface, 
+            decl_player_name: str, rover_player_name: str,
+            loc_name: str):
+        super().__init__(screen, ANNOUNCE_UNDECLARED_TIME)
+        self.msg = f'ROVER PLAY\nin {loc_name}!\n\n{decl_player_name} PAYS {rover_player_name}\n{ROVER_PLAY_FEE} AND BECOMES\n UNDECLARED'
+
+    def paint(self):
+        self.screen.fill(pg.Color(255,255,0))
+        self.draw_text(self.msg, 'Corrigan-ExtraBold', 50,
+            FULL_SCREEN_B, pg.Color(0,0,0))
+
+ANNOUNCE_WIN_TIME = 10.0
+class AnnounceWinnerScreen(AnnounceScreen):
+    def __init__(self, screen: pg.surface.Surface, winner: str):
+        super().__init__(screen, ANNOUNCE_WIN_TIME)
+        self.msg = f'{winner} WINS!!!'
+    
+    def paint(self):
+        self.screen.fill(pg.Color(30, 100, 30))
+        self.draw_text(self.msg, 'Corrigan-ExtraBold', 100,
+            FULL_SCREEN_B, pg.Color(0,0,0))
 
 if __name__ == '__main__':
     pg.init()
@@ -281,6 +333,10 @@ if __name__ == '__main__':
         AnnounceOrderScreen(test_s, names).run()
         AnnounceShortfallScreen(test_s, names[0],
             randint(10,20)*500, rrs, randint(10,20)*500).run()
+        AnnounceUndeclaredScreen(test_s, names[0]).run()
+        AnnounceRoverScreen(test_s, names[0], names[1], choice(s.map.points).display_name).run()
+        AnnounceSaleScreen(test_s, names[0], 'CMSTP&P', names[1], 12500).run()
         AnnounceTurnScreen(test_s, s, 0).run()
         AnnounceArrivalScreen(test_s, dest_city).run()
         AnnouncePayoffScreen(test_s, s, 0).run()
+        AnnounceWinnerScreen(test_s, names[0]).run()

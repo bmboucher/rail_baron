@@ -1,3 +1,4 @@
+from pyrailbaron.game.screens.announce import AnnounceWinnerScreen
 from pyrailbaron.game.screens.move import MoveScreen
 from pyrailbaron.game.state import GameState
 from pyrailbaron.game.interface import Interface
@@ -10,7 +11,8 @@ from pyrailbaron.game.screens import (
     SplashScreen, MainMenuScreen, RollScreen, RegionRoll, CityRoll, KeyboardScreen,
     PurchaseSelectScreen, RegionSelectScreen, AnnounceTurnScreen, AnnounceArrivalScreen,
     AnnouncePayoffScreen, SellOrAuctionScreen, AuctionScreen, DeclareScreen,
-    AnnounceOrderScreen, AnnounceShortfallScreen)
+    AnnounceOrderScreen, AnnounceShortfallScreen, AnnounceSaleScreen,
+    AnnounceUndeclaredScreen, AnnounceRoverScreen)
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 
 from typing import List, Tuple
@@ -119,54 +121,48 @@ class PyGame_Interface(Interface):
 
     def select_rr_to_sell(self, s: GameState, player_i: int, amt_required: int) -> str:
         assert len(s.players[player_i].rr_owned) > 0, "Must have at least 1 RR to sell"
-        sell_screen = PurchaseSelectScreen(self.screen, s, player_i, 0, True, amt_required)
-        sell_screen.run()
-        return sell_screen.selected[0]
+        return PurchaseSelectScreen(self.screen, s, player_i, 0, True, amt_required).run().selected[0]
 
     def announce_route_payoff(self, s: GameState, player_i: int, payoff: int):
         ps = s.players[player_i]
         loc = s.map.points[ps.location]
         city_name = ps.destination
         assert city_name in loc.city_names, "Should only announce route payoff at destination"
-        arr_screen = AnnounceArrivalScreen(self.screen, city_name)
-        arr_screen.run()
-
-        payoff_screen = AnnouncePayoffScreen(self.screen, s, player_i)
-        payoff_screen.run()
+        AnnounceArrivalScreen(self.screen, city_name).run()
+        AnnouncePayoffScreen(self.screen, s, player_i).run()
 
     def ask_to_auction(self, s: GameState, player_i: int, rr_to_sell: str) -> bool:
         rr_name = s.map.railroads[rr_to_sell].shortName
         min_amt = s.map.railroads[rr_to_sell].cost // 2
-        if not any(ps.index != player_i and ps.bank >= min_amt
-            for ps in s.players):
+        if len([ps for ps in s.players 
+                if ps.index != player_i and ps.bank >= min_amt]) < 2:
+            # If 0 players can bid, will immediately sell to bank anyways
+            # If 1 player can bid, no incentive to auction
             return False
-        soa_screen = SellOrAuctionScreen(self.screen, rr_name, min_amt)
-        soa_screen.run()
-        return soa_screen.do_auction
+        return SellOrAuctionScreen(self.screen, rr_name, min_amt).run().do_auction
 
     def ask_for_bid(self, s: GameState, selling_player_i: int, bidding_player_i: int, rr_to_sell: str, min_bid: int) -> int:
         ps = s.players[bidding_player_i]
         if ps.bank < min_bid:
             return 0
         rr_name = s.map.railroads[rr_to_sell].shortName
-        auct_screen = AuctionScreen(self.screen, ps.name, rr_name, min_bid, ps.bank)
-        auct_screen.run()
-        return auct_screen.bid
+        return AuctionScreen(self.screen, ps.name, rr_name, min_bid, ps.bank).run().bid
 
     def announce_sale(self, s: GameState, seller_i: int, buyer_i: int, rr: str, price: int):
-        # TODO: Implement
-        pass
+        seller_n = s.players[seller_i].name
+        buyer_n = s.players[buyer_i].name
+        rr_name = s.map.railroads[rr].shortName
+        AnnounceSaleScreen(self.screen, seller_n, buyer_n, rr_name, price).run()
 
     def announce_sale_to_bank(self, s: GameState, seller_i: int, rr: str, price: int):
-        # TODO: Implement
-        pass
+        seller_n = s.players[seller_i].name
+        rr_name = s.map.railroads[rr].shortName
+        AnnounceSaleScreen(self.screen, seller_n, 'THE BANK', rr_name, price).run()
 
     def get_purchase(self, s: GameState, player_i: int, user_fee: int) -> str|None:
         if len(s.get_player_purchase_opts(player_i)) == 0:
             return None
-        ps = PurchaseSelectScreen(self.screen, s, player_i, user_fee)
-        ps.run()
-        opt: Tuple[str, int]|None = ps.selected
+        opt = PurchaseSelectScreen(self.screen, s, player_i, user_fee).run().selected
         if opt:
             return opt[0]
         else:
@@ -174,21 +170,19 @@ class PyGame_Interface(Interface):
 
     def ask_to_declare(self, s: GameState, player_i: int) -> bool:
         ps = s.players[player_i]
-        dec_screen = DeclareScreen(self.screen, ps.name, ps.displayHomeCity)
-        dec_screen.run()
-        return dec_screen.declare
+        return DeclareScreen(self.screen, ps.name, ps.displayHomeCity).run().declare
 
     def announce_undeclared(self, s: GameState, player_i: int):
-        # TODO: Implement
-        pass
+        AnnounceUndeclaredScreen(self.screen, s.players[player_i].name).run()
     
     def announce_rover_play(self, s: GameState, decl_player_i: int, rover_player_i: int):
-        # TODO: Implement
-        pass
+        AnnounceRoverScreen(self.screen,
+            s.players[decl_player_i].name,
+            s.players[rover_player_i].name,
+            s.map.points[s.players[decl_player_i].location].display_name).run()
 
     def show_winner(self, s: GameState, winner_i: int):
-        # TODO: Implement
-        pass
+        AnnounceWinnerScreen(self.screen, s.players[winner_i].name).run()
         
     def run(self):
         self.display_splash()
