@@ -21,3 +21,12 @@ class Serial:
     @staticmethod
     def update_bank_amounts(s: GameState):
         print(f'[SERIAL] SET_BANK {",".join(str(p.bank) for p in s.players)}')
+
+    @staticmethod
+    def update_owners(s: GameState):
+        for i, ps in enumerate(s.players):
+            prefix = f'[SERIAL] SET_OWNED {i}'
+            if len(ps.rr_owned) == 0:
+                print(f'{prefix} EMPTY')
+            else:
+                print(f'{prefix} {" ".join(ps.rr_owned)}')

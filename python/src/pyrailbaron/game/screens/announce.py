@@ -226,6 +226,28 @@ class AnnounceOrderScreen(AnnounceScreen):
             self.screen.blit(label, (0, label_t))
             label_t += label.get_height() + PLAYER_ROW_SEP
 
+ANNOUNCE_SHORTFALL_TIME = 5.0
+class AnnounceShortfallScreen(AnnounceScreen):
+    def __init__(self, screen: pg.surface.Surface, 
+        player_name: str, min_amt: int, rr_owned: List[str], rr_sell_value: int):
+        super().__init__(screen, ANNOUNCE_SHORTFALL_TIME)
+        self.player_name = player_name
+        self.min_amt = min_amt
+        self.rr_owned = rr_owned
+        self.rr_sell_value = rr_sell_value
+
+    def paint(self):
+        shortfall_msg = f'{self.player_name} HAS\nRUN OUT OF CASH\n{self.min_amt} NEEDED\n'
+        if len(self.rr_owned) == 0:
+            shortfall_msg += 'No railroads to sell\nBank will cover fees'
+        elif len(self.rr_owned) == 1:
+            shortfall_msg += f'Forced to sell {self.rr_owned[0]}\nMinimum sale {self.rr_sell_value}'
+        else:
+            shortfall_msg += f'Sell up to {len(self.rr_owned)} railroads\nMinimum sale {self.rr_sell_value}'
+        self.screen.fill(pg.Color(200, 20,20))
+        self.draw_text(shortfall_msg, 'Corrigan-ExtraBold', 60,
+            self.screen.get_bounding_rect(), [pg.Color(255,255,255)]*2 + [pg.Color(255,255,0)] + [pg.Color(0,0,0)]*2)
+
 if __name__ == '__main__':
     pg.init()
     test_s = pg.display.set_mode((SCREEN_W, SCREEN_H))
@@ -254,14 +276,11 @@ if __name__ == '__main__':
         names = ["ALEX","BRIAN","CHRIS","DENNIS"]
         shuffle(names)
         names = names[:randint(2,4)]
-        order_screen = AnnounceOrderScreen(test_s, names)
-        order_screen.run()
+        rrs = ['B&O','CMSTP&P'][:randint(0,2)]
 
-        turn_screen = AnnounceTurnScreen(test_s, s, 0)
-        turn_screen.run()
-
-        arrival_screen = AnnounceArrivalScreen(test_s, dest_city)
-        arrival_screen.run()
-
-        payoff_screen = AnnouncePayoffScreen(test_s, s, 0)
-        payoff_screen.run()
+        AnnounceOrderScreen(test_s, names).run()
+        AnnounceShortfallScreen(test_s, names[0],
+            randint(10,20)*500, rrs, randint(10,20)*500).run()
+        AnnounceTurnScreen(test_s, s, 0).run()
+        AnnounceArrivalScreen(test_s, dest_city).run()
+        AnnouncePayoffScreen(test_s, s, 0).run()

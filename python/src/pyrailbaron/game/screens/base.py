@@ -185,3 +185,4 @@ class PyGameScreen:
             if self.animate():
                 _draw(False)
             clock.tick(FRAME_RATE)
+        return self

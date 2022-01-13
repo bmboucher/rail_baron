@@ -1,6 +1,5 @@
 from pyrailbaron.game.screens.move import MoveScreen
 from pyrailbaron.game.state import GameState
-from pyrailbaron.map.datamodel import Coordinate
 from pyrailbaron.game.interface import Interface
 from pyrailbaron.game.logic import run_game
 from pyrailbaron.teensy.serial import Serial
@@ -11,7 +10,7 @@ from pyrailbaron.game.screens import (
     SplashScreen, MainMenuScreen, RollScreen, RegionRoll, CityRoll, KeyboardScreen,
     PurchaseSelectScreen, RegionSelectScreen, AnnounceTurnScreen, AnnounceArrivalScreen,
     AnnouncePayoffScreen, SellOrAuctionScreen, AuctionScreen, DeclareScreen,
-    AnnounceOrderScreen)
+    AnnounceOrderScreen, AnnounceShortfallScreen)
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 
 from typing import List, Tuple
@@ -27,15 +26,6 @@ class PyGame_Interface(Interface):
         pg.init()
         self.screen = pg.display.set_mode(SCREENRECT.size)
 
-    def _draw_buttons(self, start_pt: Coordinate, size: Coordinate, n_buttons: int = 1):
-        x, y = start_pt
-        w, h = size
-        button_w = (w - (n_buttons-1)*BUTTON_MARGIN) // n_buttons
-        button_c = (170,170,170)
-        for _ in range(n_buttons):
-            pg.draw.rect(self.screen, button_c, pg.Rect(x, y, button_w, h), 0, 10)
-            x += button_w + BUTTON_MARGIN
-
     def display_splash(self):
         SplashScreen(self.screen).run()
 
@@ -44,55 +34,52 @@ class PyGame_Interface(Interface):
         run_game(n_players, self)
 
     def get_player_name(self) -> str:
-        keyboard = KeyboardScreen(self.screen)
-        keyboard.run()
-        assert len(keyboard.text) > 0, "Player name must have >0 characters"
-        assert not keyboard.text.startswith('CPU'), "Player names cannot start with CPU"
-        return keyboard.text
+        name = KeyboardScreen(self.screen).run().text
+        assert name == name.upper(), "Player name should be uppercase"
+        assert len(name) > 0, "Player name must have >0 characters"
+        assert not name.startswith('CPU'), "Player names cannot start with CPU"
+        return name
 
     def announce_player_order(self, s: GameState):
         names = [ps.name for ps in s.players]
-        ord_screen = AnnounceOrderScreen(self.screen, names)
-        ord_screen.run()
+        AnnounceOrderScreen(self.screen, names).run()
 
     def get_home_city(self, s: GameState, player_i: int) -> str:
         Serial.set_active_player(player_i, len(s.players))
 
-        roll_screen = RegionRoll(self.screen, s, player_i, 'HOME REGION')
-        roll_screen.run()
-        home_region = roll_screen.result
-        assert home_region, "Must have home region aftet roll"
+        home_region = RegionRoll(self.screen, s, player_i, 
+            'HOME REGION').run().result
+        assert home_region, "Must have home region after roll"
 
-        roll_screen = CityRoll(self.screen, s, player_i, home_region, 
-            'HOME CITY', is_home_city=True)
-        roll_screen.run()
-        home_city = roll_screen.result
+        home_city = CityRoll(self.screen, s, player_i, home_region, 
+            'HOME CITY', is_home_city=True).run().result
         assert home_city, "Must have home city after roll"
         return home_city
 
     def announce_turn(self, s: GameState, player_i: int):
         Serial.set_active_player(player_i, len(s.players))
-        ann = AnnounceTurnScreen(self.screen, s, player_i)
-        ann.run()
+        AnnounceTurnScreen(self.screen, s, player_i).run()
 
     def get_destination(self, s: GameState, player_i: int) -> str:
-        home_region = s.map.points[s.players[player_i].location].region
-        assert home_region, "Must know start region to get destination"
+        start_loc = s.players[player_i].location
+        start_region = s.map.points[start_loc].region
+        assert start_region, "Must know start region to get destination"
 
-        roll_screen = RegionRoll(self.screen, s, player_i, 'DEST REGION')
-        roll_screen.run()
-        dest_region = roll_screen.result
-        if dest_region == home_region:
-            reg_sel_screen = RegionSelectScreen(self.screen)
-            reg_sel_screen.run()
-            dest_region = reg_sel_screen.selected
+        dest_region = RegionRoll(self.screen, s, player_i, 
+            'DEST REGION').run().result
+        if dest_region == start_region:
+            dest_region = RegionSelectScreen(self.screen).run().selected
         assert dest_region, "Must have dest region after roll"
 
-        roll_screen = CityRoll(self.screen, s, player_i, dest_region, 'DESTINATION')
-        roll_screen.run()
-        destination = roll_screen.result
-        assert destination, "Must have home city after roll"
-        return destination
+        def get_dest():
+            dest = CityRoll(self.screen, s, player_i, dest_region, 
+                'DESTINATION').run().result
+            assert dest, "Must have destination after roll"
+            return s.map.lookup_city(dest)
+        dest, dest_i = get_dest()
+        while dest_i == start_loc:
+            dest, dest_i = get_dest()
+        return dest
 
     def roll_for_distance(self, s: GameState, player_i: int) -> Tuple[int, int]:
         pn = s.players[player_i].name
@@ -122,12 +109,13 @@ class PyGame_Interface(Interface):
         Serial.update_bank_amounts(s)
 
     def update_owners(self, s: GameState):
-        # TODO: Implement
-        pass
+        Serial.update_owners(s)
 
     def display_shortfall(self, s: GameState, player_i: int, amt: int):
-        # TODO: Implement
-        pass
+        ps = s.players[player_i]
+        rr_owned = [s.map.railroads[rr].shortName for rr in ps.rr_owned]
+        rr_sell_value = sum(s.map.railroads[rr].cost for rr in ps.rr_owned) // 2
+        AnnounceShortfallScreen(self.screen, ps.name, amt, rr_owned, rr_sell_value).run()
 
     def select_rr_to_sell(self, s: GameState, player_i: int, amt_required: int) -> str:
         assert len(s.players[player_i].rr_owned) > 0, "Must have at least 1 RR to sell"
