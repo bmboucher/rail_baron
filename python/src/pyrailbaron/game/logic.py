@@ -144,12 +144,12 @@ def do_move(s: GameState, i: Interface, player_i: int, d: int, init_rr: str | No
             other_ps.record_rover_play(
                 winner=False, rover_play_index=len(other_ps.history) - 1)
 
+            other_ps.declared = False
             bank_deltas = [0] * len(s.players)
             bank_deltas[player_j] = -ROVER_PLAY_FEE
             bank_deltas[player_i] = ROVER_PLAY_FEE
             update_balances(s, i, bank_deltas)
 
-            other_ps.declared = False
             i.announce_rover_play(s, player_j, player_i)
 
     bank_deltas = [0] * len(s.players)
