@@ -10,7 +10,7 @@ import pygame as pg
 from pyrailbaron.game.screens import (
     SplashScreen, MainMenuScreen, RollScreen, RegionRoll, CityRoll, KeyboardScreen,
     PurchaseSelectScreen, RegionSelectScreen, AnnounceTurnScreen, AnnounceArrivalScreen,
-    AnnouncePayoffScreen, SellOrAuctionScreen, AuctionScreen)
+    AnnouncePayoffScreen, SellOrAuctionScreen, AuctionScreen, DeclareScreen)
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H
 
 from typing import List, Tuple
@@ -129,7 +129,7 @@ class PyGame_Interface(Interface):
 
     def select_rr_to_sell(self, s: GameState, player_i: int, amt_required: int) -> str:
         assert len(s.players[player_i].rr_owned) > 0, "Must have at least 1 RR to sell"
-        sell_screen = PurchaseSelectScreen(self.screen, s, player_i, 0, True)
+        sell_screen = PurchaseSelectScreen(self.screen, s, player_i, 0, True, amt_required)
         sell_screen.run()
         return sell_screen.selected[0]
 
@@ -183,9 +183,10 @@ class PyGame_Interface(Interface):
             return None
 
     def ask_to_declare(self, s: GameState, player_i: int) -> bool:
-        # TODO: Implement
-        pg.quit()
-        exit()
+        ps = s.players[player_i]
+        dec_screen = DeclareScreen(self.screen, ps.name, ps.displayHomeCity)
+        dec_screen.run()
+        return dec_screen.declare
 
     def announce_undeclared(self, s: GameState, player_i: int):
         # TODO: Implement

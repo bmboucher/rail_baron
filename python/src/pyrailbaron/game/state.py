@@ -46,6 +46,17 @@ class PlayerState:
         return self._destination
 
     @property
+    def displayHomeCity(self) -> str:
+        return (self._homeCity or "-").replace("_","")
+    @property
+    def displayStart(self) -> str:
+        return (self.startCity or "-").replace("_","")
+    @property
+    def displayDestination(self) -> str:
+        return ((self.homeCity if self.declared 
+            else self.destination) or "-").replace("_","")
+
+    @property
     def startCityIndex(self) -> int:
         return self._startCityIndex
     @property

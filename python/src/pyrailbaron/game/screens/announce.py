@@ -110,7 +110,7 @@ class AnnounceArrivalScreen(AnnounceScreen):
         self.screen.blit(self.img, (img_l, 0))
 
 ANNOUNCE_PAYOFF_TIME = 5.0
-PAYOFF_MAP_W = SCREEN_H
+PAYOFF_MAP_W = 420
 PAYOFF_TEXT_M = 20
 PAYOFF_TEXT_T = 60
 class AnnouncePayoffScreen(AnnounceScreen):
@@ -145,21 +145,21 @@ class AnnouncePayoffScreen(AnnounceScreen):
         label_l = PAYOFF_MAP_W + PAYOFF_TEXT_M
         label_t = PAYOFF_TEXT_T
         max_label_w = SCREEN_W - PAYOFF_TEXT_M - label_l
-        _, label_h = self.draw_text('FROM', 'Corrigan-ExtraBold', 20,
-            pg.Rect(label_l, label_t, max_label_w, 0), pg.Color(255,255,255), center=False)
-        label_t += 1.25 * label_h
-        _, label_h = self.draw_text(ps.startCity or '-', 'Corrigan-ExtraBold', 40,
-            pg.Rect(label_l, label_t, max_label_w, 0), pg.Color(255,255,255), center=False)
+        _, label_h = self.draw_text('COMPLETED', 'Corrigan-ExtraBold', 35,
+            pg.Rect(label_l, label_t, max_label_w, 0), pg.Color(255,0,0), center=False)
         label_t += 1.25 * label_h + 20
-        _, label_h = self.draw_text('TO', 'Corrigan-ExtraBold', 20,
+        _, label_h = self.draw_text(ps.displayStart, 'Corrigan-ExtraBold', 40,
             pg.Rect(label_l, label_t, max_label_w, 0), pg.Color(255,255,255), center=False)
         label_t += 1.25 * label_h
-        _, label_h = self.draw_text(ps.destination or '-', 'Corrigan-ExtraBold', 40,
+        _, to_label_h = self.draw_text('TO', 'Corrigan-ExtraBold', 20,
+            pg.Rect(label_l, label_t, max_label_w, 0), pg.Color(255,255,255), center=False)
+        label_t += to_label_h + 0.25 * label_h
+        _, label_h = self.draw_text(ps.displayDestination, 'Corrigan-ExtraBold', 40,
             pg.Rect(label_l, label_t, max_label_w, 0), pg.Color(255,255,255), center=False)
         label_t += 1.25 * label_h + 20
         _, label_h = self.draw_text(f'{len(ps.history)} STOPS', 'Corrigan-ExtraBold',28,
             pg.Rect(label_l, label_t, max_label_w, 0), pg.Color(255,255,255), center=False)
-        label_t += 1.25 * label_h + 20
+        label_t += 1.25 * label_h + 15
         _, label_h = self.draw_text(f'{self.payoff} PAYOFF', 'Corrigan-ExtraBold', 28,
             pg.Rect(label_l, label_t, max_label_w, 0), pg.Color(255,255,0), center=False)
         label_t += 1.25 * label_h

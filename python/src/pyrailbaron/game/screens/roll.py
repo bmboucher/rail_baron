@@ -9,9 +9,9 @@ from typing import Callable, List, Tuple, Any
 from random import randint
 from time import time
 
-START_ROLL_TIME = 0.9
-ROLL_INC_FACTOR = 1.25
-END_ROLL_TIME = 1.0
+START_ROLL_TIME = 0.1
+ROLL_INC_FACTOR = 1.5
+END_ROLL_TIME = 0.75
 DISPLAY_WAIT_TIME = 0.25
 BLINK_PERIOD = 0.4
 
@@ -93,6 +93,10 @@ class RollScreen(PyGameScreen):
         if self._step == RollScreenStep.Wait:
             self._step = RollScreenStep.Roll
             self.do_roll()
+        elif self._step == RollScreenStep.Roll:
+            self.do_roll()
+            self.draw(False)
+            self._step = RollScreenStep.Display
         elif self._step == RollScreenStep.Display:
             self.close()
 

@@ -95,7 +95,6 @@ class PyGameScreen:
 
     def close(self):
         self.buttons.clear()
-        assert self._active, "Can only close once"
         self._active = False
 
     @staticmethod

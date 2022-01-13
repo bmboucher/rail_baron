@@ -18,3 +18,4 @@ from pyrailbaron.game.screens.announce import (
 )
 from pyrailbaron.game.screens.sell_or_auction import SellOrAuctionScreen
 from pyrailbaron.game.screens.auction import AuctionScreen
+from pyrailbaron.game.screens.declare import DeclareScreen
