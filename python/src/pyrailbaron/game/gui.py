@@ -27,6 +27,7 @@ class PyGame_Interface(Interface):
         super().__init__()
         pg.init()
         self.screen = pg.display.set_mode(SCREENRECT.size)
+        self.n_cpu_players: int = 0
 
     def display_splash(self):
         SplashScreen(self.screen).run()
@@ -63,14 +64,17 @@ class PyGame_Interface(Interface):
         AnnounceTurnScreen(self.screen, s, player_i).run()
 
     def get_destination(self, s: GameState, player_i: int) -> str:
-        start_loc = s.players[player_i].location
+        ps = s.players[player_i]
+        start_loc = ps.location
         start_region = s.map.points[start_loc].region
         assert start_region, "Must know start region to get destination"
 
         dest_region = RegionRoll(self.screen, s, player_i, 
             'DEST REGION').run().result
         if dest_region == start_region:
-            dest_region = RegionSelectScreen(self.screen).run().selected
+            curr_city = ps.destination or ps.homeCity or ''
+            region_payoffs = s.get_expected_region_payoffs(curr_city)
+            dest_region = RegionSelectScreen(self.screen, region_payoffs).run().selected
         assert dest_region, "Must have dest region after roll"
 
         def get_dest():

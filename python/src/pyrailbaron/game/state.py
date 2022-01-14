@@ -242,10 +242,10 @@ class GameState:
 
     def get_roll_table_probabilities(self, table: str) -> Dict[str, float]:
         probs: Dict[str, float] = {}
-        for i, (odd, even) in enumerate(self.roll_tables):
+        for i, (odd, even) in enumerate(self.roll_tables[table]):
             p: float = (6 - abs(i - 5)) / 36  # i = 5 -> d = 7 -> most common
-            probs[odd] += p / 2
-            probs[even] += p / 2
+            probs[odd] = probs.get(odd, 0.0) + p/2
+            probs[even] = probs.get(even, 0.0) + p/2
         return probs
 
     def lookup_roll_table(self, table: str, d1: int, d2: int, d3: int) -> str:
@@ -278,3 +278,18 @@ class GameState:
         if sort:
             opts = list(sorted(opts, key = lambda o: o[1]))
         return opts
+
+    def get_expected_region_payoffs(self, start_city: str) -> Dict[str, int]:
+        payoffs: Dict[str, int] = {}
+        for region in REGIONS:
+            city_probs = self.get_roll_table_probabilities(region)
+            sum_payoff: float = 0.0
+            sum_prob: float = 0.0
+            for dest_city, dest_prob in city_probs.items():
+                dest_city, _ = self.map.lookup_city(dest_city)
+                if dest_city == start_city:
+                    continue
+                sum_payoff += dest_prob * self.route_payoffs[start_city][dest_city]
+                sum_prob += dest_prob
+            payoffs[region] = round((sum_payoff / sum_prob) / 500) * 500
+        return payoffs

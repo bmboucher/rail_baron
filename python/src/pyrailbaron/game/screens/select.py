@@ -2,7 +2,7 @@ from pyrailbaron.game.screens.base import PyGameScreen
 from pyrailbaron.game.state import Engine, GameState, PlayerState
 from pyrailbaron.game.constants import SCREEN_W, SCREEN_H, REGIONS
 
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Dict
 import pygame as pg
 from enum import Enum, auto
 
@@ -176,12 +176,17 @@ class PurchaseSelectScreen(SelectScreen):
             pg.Rect(OPT_W - COST_M - label_w, label_m, label_w, 0), AVAIL_COLOR)
 
 class RegionSelectScreen(SelectScreen):
-    def __init__(self, screen: pg.surface.Surface):
-        super().__init__(screen, REGIONS)
+    def __init__(self, screen: pg.surface.Surface, payoffs: Dict[str, int]):
+        sorted_regions = list(sorted(REGIONS, key=lambda r: payoffs[r]))
+        super().__init__(screen, sorted_regions)
+        self.payoffs = payoffs
+        self._selected_index = len(sorted_regions)-1
 
     def draw_option(self):
         self.draw_text(self.selected.replace(' ','\n'), LABEL_FONT, 100,
             pg.Rect(50,0,OPT_W-100,SCREEN_H), pg.Color(255,255,255))
+        self.draw_text(f'{self.payoffs[self.selected]} AVERAGE', LABEL_FONT, 50,
+            pg.Rect(50, SCREEN_H-100,OPT_W-100,80), pg.Color(255,255,0))
 
 if __name__ == '__main__':
     pg.init()
@@ -193,6 +198,6 @@ if __name__ == '__main__':
         ps.bank = 100000
 
         #ss = PurchaseSelectScreen(screen, s, 0, 10000)
-        ss = RegionSelectScreen(screen)
+        ss = RegionSelectScreen(screen, s.get_expected_region_payoffs('Portland_'))
         ss.run()
         print(ss.selected)
